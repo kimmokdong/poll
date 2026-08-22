@@ -4,5 +4,7 @@ node_modules/
 /.playwright-cli/
 /output/
 /design-concepts/
+/.dist/
+.wrangler/
 .DS_Store
 Thumbs.db

@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { __test } = require('../server');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { __test } from '../src/game.js';
 
 function roomFixture() {
   return {

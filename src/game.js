@@ -1,24 +1,11 @@
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const crypto = require('node:crypto');
+import * as crypto from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
-const PORT = Number(process.env.PORT || 4173);
-const HOST = process.env.HOST || '0.0.0.0';
-const PUBLIC_DIR = path.join(__dirname, 'public');
-const MANUAL_DIR = path.join(__dirname, 'manual');
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'rooms.json');
 const MAX_HISTORY = 20;
 const MAX_PLAYERS = 50;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const GAME_MODES = new Set(['minority', 'exact', 'migration', 'alliance', 'mission']);
 const ROLE_MODES = new Set(['minority', 'mission']);
-const connections = new Map();
-const LAN_URLS = Object.values(os.networkInterfaces()).flatMap((items) => items || [])
-  .filter((info) => info.family === 'IPv4' && !info.internal)
-  .map((info) => `http://${info.address}:${PORT}`);
 
 const MODE_PHASES = {
   official: ['vote', 'reveal', 'finished'],
@@ -31,33 +18,12 @@ const MODE_PHASES = {
   mission: ['mission', 'vote', 'signal', 'revote', 'reveal', 'finished']
 };
 
-const rooms = loadRooms();
-
-function loadRooms() {
-  try {
-    const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    return new Map(saved.map((room) => [room.code, room]));
-  } catch (error) {
-    if (error.code !== 'ENOENT') console.warn('저장된 방 정보를 읽지 못했습니다:', error.message);
-    return new Map();
-  }
-}
-
-function saveRooms() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify([...rooms.values()], null, 2), 'utf8');
-}
-
 function id(prefix = '') {
   return prefix + crypto.randomBytes(8).toString('hex');
 }
 
 function roomCode() {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const code = Array.from({ length: 5 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join('');
-    if (!rooms.has(code)) return code;
-  }
-  throw new Error('새 방 코드를 만들 수 없습니다.');
+  return Array.from({ length: 5 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join('');
 }
 
 function cleanText(value, max = 50) {
@@ -65,7 +31,7 @@ function cleanText(value, max = 50) {
 }
 
 function pinHash(pin, salt) {
-  return crypto.scryptSync(String(pin), salt, 32).toString('hex');
+  return crypto.createHash('sha256').update(`${salt}:${String(pin)}`).digest('hex');
 }
 
 function secureEqual(left, right) {
@@ -83,7 +49,7 @@ function shuffled(items) {
   return copy;
 }
 
-function createRoom(input) {
+function createRoom(input, code = roomCode()) {
   const className = cleanText(input.className, 30);
   const teacherName = cleanText(input.teacherName, 20) || '선생님';
   const pin = String(input.pin ?? '');
@@ -91,8 +57,8 @@ function createRoom(input) {
   if (!/^\d{4}$/.test(pin)) throw clientError('교사 PIN은 숫자 4자리여야 합니다.');
   const salt = crypto.randomBytes(16).toString('hex');
   const room = {
-    version: 1,
-    code: roomCode(),
+    version: 2,
+    code,
     className,
     teacherName,
     pinSalt: salt,
@@ -103,8 +69,6 @@ function createRoom(input) {
     currentRound: null,
     history: []
   };
-  rooms.set(room.code, room);
-  saveRooms();
   return room;
 }
 
@@ -115,7 +79,6 @@ function joinRoom(room, input) {
   if (existing) {
     existing.name = name;
     existing.lastSeen = Date.now();
-    saveRooms();
     return existing;
   }
   if (Object.keys(room.players).length >= MAX_PLAYERS) throw clientError('이 방은 정원 50명입니다.');
@@ -129,7 +92,6 @@ function joinRoom(room, input) {
     lastSeen: Date.now()
   };
   room.players[player.id] = player;
-  saveRooms();
   return player;
 }
 
@@ -215,8 +177,6 @@ function createRound(room, input) {
   if (mode === 'mission') assignMissions(round, playerIds);
   room.currentRound = round;
   startTimer(round);
-  saveRooms();
-  broadcast(room);
   return round;
 }
 
@@ -354,8 +314,6 @@ function advanceRound(room) {
   }
   if (round.phase === 'finished') scoreRound(room);
   startTimer(round);
-  saveRooms();
-  broadcast(room);
   return round;
 }
 
@@ -620,9 +578,8 @@ function submissionCounts(round) {
   };
 }
 
-function clientState(room, auth) {
+function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
   const round = room.currentRound;
-  const onlineTokens = new Set((connections.get(room.code) || []).map((item) => item.token));
   const teamScores = Object.values(room.players).reduce((acc, player) => {
     acc[player.team] = (acc[player.team] || 0) + player.score;
     return acc;
@@ -630,7 +587,7 @@ function clientState(room, auth) {
   const state = {
     serverTime: Date.now(),
     role: auth.role,
-    room: { code: room.code, className: room.className, teacherName: room.teacherName, joinUrl: process.env.RENDER_EXTERNAL_URL || LAN_URLS[0] || null },
+    room: { code: room.code, className: room.className, teacherName: room.teacherName, joinUrl },
     players: Object.values(room.players).map((player) => ({
       id: player.id,
       name: player.name,
@@ -704,8 +661,8 @@ function publicDisplayOutcome(room) {
   return { kind: 'leader', title: '최종 집계 1위', winners: [winner(ranking[0])] };
 }
 
-function displayState(room) {
-  const state = clientState(room, { role: 'display', player: null });
+function displayState(room, onlineTokens = new Set(), joinUrl = null) {
+  const state = clientState(room, { role: 'display', player: null }, onlineTokens, joinUrl);
   if (state.round) state.round.displayOutcome = publicDisplayOutcome(room);
   return {
     serverTime: state.serverTime,
@@ -751,32 +708,6 @@ function requireRound(room) {
   return room.currentRound;
 }
 
-function broadcast(room) {
-  for (const connection of connections.get(room.code) || []) {
-    try {
-      const state = connection.role === 'display'
-        ? displayState(room)
-        : clientState(room, authenticate(room, connection.token));
-      connection.res.write(`event: state\ndata: ${JSON.stringify(state)}\n\n`);
-    } catch {
-      connection.res.end();
-    }
-  }
-}
-
-function addConnection(room, token, res, role = null) {
-  const list = connections.get(room.code) || [];
-  const connection = { token, res, role };
-  list.push(connection);
-  connections.set(room.code, list);
-  broadcast(room);
-  res.on('close', () => {
-    const next = (connections.get(room.code) || []).filter((item) => item !== connection);
-    connections.set(room.code, next);
-    broadcast(room);
-  });
-}
-
 function clientError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
@@ -785,147 +716,37 @@ function authError(message) {
   return clientError(message, 401);
 }
 
-function json(res, status, payload) {
-  const body = JSON.stringify(payload);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(body),
-    'Cache-Control': 'no-store'
-  });
-  res.end(body);
-}
+const __test = {
+  countVotes,
+  orderedResults,
+  qualitativeSignal,
+  gapBucket,
+  missionSucceeded,
+  defaultOptions,
+  prepareReveal,
+  publicResults,
+  publicDisplayOutcome,
+  displayState,
+  revealNext,
+  scoreRound,
+  MODE_PHASES
+};
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', (chunk) => {
-      raw += chunk;
-      if (raw.length > 100_000) reject(clientError('요청 내용이 너무 큽니다.', 413));
-    });
-    req.on('end', () => {
-      try { resolve(raw ? JSON.parse(raw) : {}); }
-      catch { reject(clientError('요청 내용을 읽을 수 없습니다.')); }
-    });
-    req.on('error', reject);
-  });
-}
-
-function staticFile(req, res, pathname) {
-  if (pathname === '/manual') {
-    res.writeHead(308, { Location: '/manual/' });
-    return res.end();
-  }
-  if (pathname === '/display') {
-    res.writeHead(308, { Location: '/display/' });
-    return res.end();
-  }
-  const isManual = pathname === '/manual' || pathname.startsWith('/manual/');
-  const root = isManual ? MANUAL_DIR : PUBLIC_DIR;
-  const localPath = isManual ? pathname.slice('/manual'.length) || '/' : pathname;
-  const isDisplay = !isManual && (pathname === '/display/' || pathname.startsWith('/display/'));
-  const requested = isDisplay ? '/display.html' : localPath === '/' ? '/index.html' : localPath;
-  const resolved = path.resolve(root, `.${requested}`);
-  const resolvedRoot = path.resolve(root);
-  if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}${path.sep}`)) return json(res, 403, { error: '접근할 수 없습니다.' });
-  fs.readFile(resolved, (error, data) => {
-    if (error) return json(res, 404, { error: '파일을 찾을 수 없습니다.' });
-    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
-    res.writeHead(200, { 'Content-Type': types[path.extname(resolved)] || 'application/octet-stream', 'Cache-Control': requested.startsWith('/assets/') ? 'public, max-age=86400' : 'no-cache' });
-    res.end(data);
-  });
-}
-
-async function handleApi(req, res, url) {
-  const parts = url.pathname.split('/').filter(Boolean);
-  if (req.method === 'POST' && url.pathname === '/api/rooms') {
-    const room = createRoom(await readBody(req));
-    return json(res, 201, { code: room.code, teacherToken: room.teacherToken, state: clientState(room, { role: 'teacher', player: null }) });
-  }
-  const code = (parts[2] || '').toUpperCase();
-  const room = rooms.get(code);
-  if (!room) throw clientError('방 코드를 확인해 주세요.', 404);
-  if (req.method === 'POST' && parts[3] === 'teacher-login') {
-    const body = await readBody(req);
-    if (!secureEqual(pinHash(body.pin, room.pinSalt), room.pinHash)) throw authError('교사 PIN이 맞지 않습니다.');
-    room.teacherToken = id('t_');
-    saveRooms();
-    return json(res, 200, { token: room.teacherToken, state: clientState(room, { role: 'teacher', player: null }) });
-  }
-  if (req.method === 'POST' && parts[3] === 'join') {
-    const player = joinRoom(room, await readBody(req));
-    broadcast(room);
-    return json(res, 200, { token: player.token, state: clientState(room, { role: 'student', player }) });
-  }
-  if (req.method === 'GET' && parts[3] === 'display-state') return json(res, 200, displayState(room));
-  if (req.method === 'GET' && parts[3] === 'display-events') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-    res.write('retry: 2000\n\n');
-    addConnection(room, null, res, 'display');
-    return;
-  }
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || url.searchParams.get('token');
-  const auth = authenticate(room, token);
-  if (req.method === 'GET' && parts[3] === 'state') return json(res, 200, clientState(room, auth));
-  if (req.method === 'GET' && parts[3] === 'events') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-    res.write('retry: 2000\n\n');
-    addConnection(room, token, res);
-    return;
-  }
-  if (req.method === 'POST' && parts[3] === 'action') {
-    const body = await readBody(req);
-    if (auth.role === 'teacher') teacherAction(room, body.action, body.payload || {});
-    else studentAction(room, auth.player, body.action, body.payload || {});
-    saveRooms();
-    broadcast(room);
-    return json(res, 200, clientState(room, auth));
-  }
-  throw clientError('API 주소를 찾을 수 없습니다.', 404);
-}
-
-const server = http.createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    if (url.pathname.startsWith('/api/')) await handleApi(req, res, url);
-    else staticFile(req, res, decodeURIComponent(url.pathname));
-  } catch (error) {
-    if (!res.headersSent) json(res, error.status || 500, { error: error.status ? error.message : '서버에서 문제가 생겼습니다.' });
-    if (!error.status) console.error(error);
-  }
-});
-
-const timer = setInterval(() => {
-  const now = Date.now();
-  for (const room of rooms.values()) {
-    const round = room.currentRound;
-    if (round?.timerEnd && !round.timerExpired && round.timerEnd <= now) {
-      if (round.config.autoAdvance && !['reveal', 'finished'].includes(round.phase)) advanceRound(room);
-      else {
-        round.timerExpired = true;
-        broadcast(room);
-      }
-    }
-  }
-}, 1000);
-timer.unref();
-
-const heartbeat = setInterval(() => {
-  for (const list of connections.values()) for (const connection of list) connection.res.write(': heartbeat\n\n');
-}, 20_000);
-heartbeat.unref();
-
-if (require.main === module) {
-  server.listen(PORT, HOST, () => {
-    console.log(`\n마음신호가 열렸습니다.`);
-    console.log(`이 컴퓨터: http://localhost:${PORT}`);
-    for (const interfaces of Object.values(os.networkInterfaces())) {
-      for (const info of interfaces || []) if (info.family === 'IPv4' && !info.internal) console.log(`학생 접속: http://${info.address}:${PORT}`);
-    }
-    console.log('종료하려면 Ctrl+C를 누르세요.\n');
-  });
-}
-
-module.exports = {
-  server,
-  __test: { countVotes, orderedResults, qualitativeSignal, gapBucket, missionSucceeded, defaultOptions, prepareReveal, publicResults, publicDisplayOutcome, displayState, revealNext, scoreRound, MODE_PHASES }
+export {
+  MODE_PHASES,
+  advanceRound,
+  authenticate,
+  authError,
+  clientError,
+  clientState,
+  createRoom,
+  displayState,
+  id,
+  joinRoom,
+  pinHash,
+  roomCode,
+  secureEqual,
+  studentAction,
+  teacherAction,
+  __test
 };

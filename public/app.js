@@ -39,6 +39,7 @@ const SKILLS = {
 let session = readSession();
 let state = null;
 let eventSource = null;
+let reconnectTimer = null;
 const linkedRoom = new URLSearchParams(location.search).get('room')?.trim().toUpperCase().slice(0, 5) || '';
 let screen = linkedRoom ? 'student' : 'landing';
 let draftMode = 'prediction';
@@ -429,11 +430,23 @@ function receiveState(next) {
 }
 
 function connect() {
+  clearTimeout(reconnectTimer);
   eventSource?.close();
   if (!session) return;
-  eventSource = new EventSource(`/api/rooms/${encodeURIComponent(session.code)}/events?token=${encodeURIComponent(session.token)}`);
-  eventSource.addEventListener('state', (event) => receiveState(JSON.parse(event.data)));
-  eventSource.addEventListener('error', () => showToast('연결을 다시 시도하고 있어요.'));
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(session.code)}/events?token=${encodeURIComponent(session.token)}`);
+  eventSource = socket;
+  socket.addEventListener('message', (event) => {
+    if (event.data === 'pong') return;
+    try { receiveState(JSON.parse(event.data)); }
+    catch { showToast('새 상태를 읽지 못했습니다.', true); }
+  });
+  socket.addEventListener('close', () => {
+    if (eventSource !== socket || !session) return;
+    showToast('연결을 다시 시도하고 있어요.');
+    reconnectTimer = setTimeout(connect, 1500);
+  });
+  socket.addEventListener('error', () => socket.close());
 }
 
 async function restore() {

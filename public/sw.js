@@ -1,4 +1,4 @@
-const CACHE = 'maeum-signal-v4';
+const CACHE = 'maeum-signal-v5-cloudflare';
 const ASSETS = ['/', '/styles.css', '/app.js', '/display/', '/display.css', '/display.js', '/manifest.webmanifest', '/assets/app-icon.png', '/assets/hero-classroom.png', '/assets/skill-atlas.png', '/assets/mode-atlas.png'];
 
 self.addEventListener('install', (event) => {

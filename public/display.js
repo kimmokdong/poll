@@ -35,6 +35,7 @@ const roomCode = String(pathParts[0] === 'display' ? pathParts[1] || queryCode |
 
 let state = null;
 let source = null;
+let reconnectTimer = null;
 let clockOffset = 0;
 let toastTimer = null;
 let controlsTimer = null;
@@ -284,11 +285,23 @@ async function loadState() {
 }
 
 function connect() {
+  clearTimeout(reconnectTimer);
   source?.close();
-  source = new EventSource(`/api/rooms/${encodeURIComponent(roomCode)}/display-events`);
-  source.addEventListener('state', (event) => receiveState(JSON.parse(event.data)));
-  source.addEventListener('open', () => showToast('교사 화면과 실시간으로 연결되었습니다.'));
-  source.addEventListener('error', () => showToast('연결을 다시 시도하고 있습니다.', true));
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(roomCode)}/display-events`);
+  source = socket;
+  socket.addEventListener('message', (event) => {
+    if (event.data === 'pong') return;
+    try { receiveState(JSON.parse(event.data)); }
+    catch { showToast('새 상태를 읽지 못했습니다.', true); }
+  });
+  socket.addEventListener('open', () => showToast('교사 화면과 실시간으로 연결되었습니다.'));
+  socket.addEventListener('close', () => {
+    if (source !== socket || !roomCode) return;
+    showToast('연결을 다시 시도하고 있습니다.', true);
+    reconnectTimer = setTimeout(connect, 1500);
+  });
+  socket.addEventListener('error', () => socket.close());
 }
 
 function triggerRevealHit() {

@@ -3,13 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "description": "교실용 실시간 투표·추리 게임 마음신호",
-  "main": "server.js",
+  "type": "module",
+  "main": "src/worker.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "build": "node scripts/build-assets.js",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "start": "npm run dev",
     "test": "node --test"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
   }
 }

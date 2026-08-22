@@ -3,7 +3,7 @@ manual:
   title: "마음신호 교사·학생·교실 TV 통합 사용설명서"
   language_policy: "learner-facing-ko"
   primary_audience: "처음 마음신호를 사용하는 담임교사와 학생, 교실 TV 진행자"
-  target_version: "로컬 앱 소스 및 실제 UI 2026-08-22"
+  target_version: "Cloudflare Workers·Durable Objects 앱 및 실제 UI 2026-08-22"
   delivery: "single-page-static-html"
   entry: "index.html"
   source_of_truth:
@@ -12,7 +12,7 @@ manual:
       location: "격리된 임시 학급방으로 교사·학생·교실 TV 흐름 실행"
     - type: source
       status: confirmed
-      location: "../public/app.js and ../server.js"
+      location: "../public/app.js, ../public/display.js, ../src/game.js and ../src/worker.js"
   forbidden_terms:
     - Playwright
     - ffmpeg
