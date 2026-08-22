@@ -46,7 +46,7 @@
     .og-section-head strong{font-family:var(--og-font-utility);font-size:10px;letter-spacing:.14em;color:var(--og-brand);text-transform:uppercase}
     .og-section-head h2{margin:4px 0 0;font-size:clamp(25px,3vw,34px);font-weight:500;line-height:1.18;letter-spacing:-.035em;color:var(--og-ink-strong)}
     .og-section-head p{max-width:590px;margin:0;color:var(--og-muted);font-size:13px;line-height:1.62}
-    .og-system-overview,.og-map,.og-detail,.og-lessons,.og-common,.og-reference{border:1px solid var(--og-line);border-radius:var(--og-radius-prominent);background:var(--og-paper-elevated);box-shadow:var(--og-shadow-subtle);padding:20px}
+    .og-system-overview,.og-map,.og-detail,.og-lessons,.og-common,.og-reference,.og-mode-guide{border:1px solid var(--og-line);border-radius:var(--og-radius-prominent);background:var(--og-paper-elevated);box-shadow:var(--og-shadow-subtle);padding:20px}
     .og-system-overview{margin-bottom:var(--og-section-gap)}
     .overview-grid{display:grid;grid-template-columns:.82fr 1.18fr;gap:14px}
     .primer{padding:20px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper)}
@@ -63,7 +63,7 @@
     .og-hl{background:linear-gradient(transparent 62%,rgba(192,133,50,.32) 0);border-radius:2px;padding:0 .04em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
     .og-hl--blue{background:linear-gradient(transparent 62%,rgba(52,120,92,.24) 0)}
     .og-shell{display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:16px;align-items:start}
-    .og-flow-board{position:relative}.og-flow-connectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}.og-flow-connectors path{fill:none;stroke:rgba(245,78,0,.45);stroke-width:2;stroke-linecap:round;stroke-dasharray:6 6}.og-flow-connectors circle{fill:var(--og-paper);stroke:var(--og-brand);stroke-width:1.5}.og-flow-connectors text{font-family:var(--og-font-mono);font-size:11px;font-weight:700;fill:var(--og-brand)}
+    .og-flow-board{position:relative}.og-flow-connectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible}.og-flow-connectors path{fill:none;stroke:rgba(245,78,0,.45);stroke-width:2;stroke-linecap:round;stroke-dasharray:6 6}
     .og-flow-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(190px,1fr));gap:12px}
     .og-flow-card{appearance:none;text-align:left;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper);padding:var(--og-card-padding);min-height:188px;color:inherit;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s,background .18s}
     .og-flow-card:hover{border-color:var(--og-brand);transform:translateY(-1px)}.og-flow-card.is-active{border-color:var(--og-brand);box-shadow:0 0 0 1px rgba(245,78,0,.18),0 14px 30px rgba(0,0,0,.08);background:#fbfaf7}
@@ -73,7 +73,7 @@
     .og-selected-path{position:relative;z-index:1;margin-top:14px;padding:13px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper)}.og-selected-path-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.og-selected-path-head strong{font-family:var(--og-font-utility);font-size:10px;letter-spacing:.1em;color:var(--og-brand);text-transform:uppercase}.og-selected-path-head span{color:var(--og-muted);font-size:11px}.og-selected-path-list{display:grid;grid-template-columns:repeat(6,minmax(105px,1fr));gap:8px;margin:0;padding:0;list-style:none;overflow:visible}.og-selected-path-list li{position:relative;display:flex;align-items:flex-start;gap:6px;min-height:62px;padding:8px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper-elevated);font-size:11px;line-height:1.38}.og-selected-path-list li::after{content:"→";position:absolute;z-index:2;right:-9px;top:22px;color:var(--og-brand);font-family:var(--og-font-mono);font-weight:900}.og-selected-path-list li:last-child::after{content:none}.og-selected-path-list b{flex:0 0 auto;display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid var(--og-brand);border-radius:3px;background:var(--og-paper);color:var(--og-brand);font-family:var(--og-font-mono);font-size:9px}.og-selected-path-list span{padding-top:2px}
     .og-detail{position:sticky;top:76px;height:var(--og-map-height,auto);max-height:var(--og-map-height,none);overflow:auto}.og-detail-icon{font-size:28px}.og-detail h2{margin:12px 0 8px;font-size:27px;font-weight:500;line-height:1.2;letter-spacing:-.03em}.og-detail h3{margin:18px 0 8px;font-family:var(--og-font-utility);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--og-muted)}.og-detail p{margin:0;color:var(--og-muted);font-size:13px;line-height:1.65}
     .og-steps{display:grid;gap:8px;margin:0;padding:0;list-style:none}.og-steps li{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:start}.og-steps b{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--og-line);border-radius:var(--og-radius);font-family:var(--og-font-mono);font-size:11px;color:var(--og-brand);background:var(--og-paper)}.og-steps span,.og-note-list li{font-size:13px;line-height:1.55}.og-note-list{margin:0;padding-left:18px}
-    .og-lessons,.og-reference,.og-common{margin-top:var(--og-section-gap)}
+    .og-lessons,.og-reference,.og-common,.og-mode-guide{margin-top:var(--og-section-gap)}
     .og-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.og-tab,.og-carousel-controls button{border:1px solid var(--og-line);border-radius:var(--og-radius);background:transparent;color:var(--og-ink);padding:8px 11px;font-family:var(--og-font-utility);font-size:12px;font-weight:750;cursor:pointer}.og-tab.is-active,.og-carousel-controls button:hover{border-color:var(--og-brand);color:var(--og-brand);background:var(--og-paper)}
     .og-focus-card{display:none;grid-template-columns:minmax(0,1.15fr) minmax(290px,.85fr);gap:14px;align-items:stretch}.og-focus-card.is-active{display:grid}
     .og-shot{position:relative;margin:0;min-height:390px;border:1px solid var(--og-line);border-radius:var(--og-radius-prominent);background:#222;overflow:hidden;display:grid;place-items:center;cursor:zoom-in}.og-shot img{width:100%;height:100%;object-fit:contain;display:block;background:#19191d}.og-callout{position:absolute;left:14px;bottom:14px;max-width:min(420px,calc(100% - 28px));width:fit-content;height:auto;padding:9px 11px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:rgba(247,247,244,.95);color:var(--og-ink);font-size:12px;line-height:1.5;box-shadow:var(--og-shadow-subtle);pointer-events:none}
@@ -84,12 +84,13 @@
     .og-review-card{padding:0;overflow:hidden}.og-review-card button{display:block;width:100%;border:0;padding:0;background:#1d1d22;cursor:zoom-in}.og-review-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain}.og-review-card .review-copy{padding:14px}.og-review-card h3,.og-common-card h3,.reference-card h3{margin:7px 0 6px;font-size:17px;font-weight:560;letter-spacing:-.015em}.og-review-card p,.og-common-card p,.reference-card p{margin:0;color:var(--og-muted);font-size:13px;line-height:1.58}.og-status{display:inline-flex;border:1px solid var(--og-brand);border-radius:var(--og-radius);padding:4px 7px;color:var(--og-brand);font-family:var(--og-font-mono);font-size:10px;background:transparent}
     .reference-card ul,.og-common-card ul{margin:10px 0 0;padding-left:18px}.reference-card li,.og-common-card li{margin:6px 0;font-size:12px;line-height:1.53}.reference-card.warn{background:var(--og-warn)}
     .mode-table-wrap{margin-top:14px;overflow:auto;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper)}table{width:100%;border-collapse:collapse;min-width:780px}th,td{padding:10px 12px;border-bottom:1px solid var(--og-line);text-align:left;font-size:12px;line-height:1.5;vertical-align:top}th{background:var(--og-paper-nested);font-family:var(--og-font-utility);font-size:10px;letter-spacing:.06em}tr:last-child td{border-bottom:0}
+    .mode-guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.mode-guide-card{padding:0;overflow:hidden}.mode-guide-card+.mode-guide-card{margin-top:0}.mode-guide-card summary{position:relative;padding:14px 48px 14px 14px;list-style:none}.mode-guide-card summary::-webkit-details-marker{display:none}.mode-guide-card summary::after{content:"＋";position:absolute;right:15px;top:50%;display:grid;place-items:center;width:24px;height:24px;border:1px solid var(--og-line);border-radius:3px;color:var(--og-brand);font-family:var(--og-font-mono);font-size:15px;transform:translateY(-50%)}.mode-guide-card[open] summary::after{content:"−"}.mode-guide-card[open] summary{background:#fbfaf7}.mode-guide-level{display:inline-flex;margin-bottom:7px;padding:3px 6px;border:1px solid var(--og-brand);border-radius:3px;color:var(--og-brand);font-family:var(--og-font-mono);font-size:9px;font-weight:800}.mode-guide-name{display:block;color:var(--og-ink-strong);font-size:18px;font-weight:650;letter-spacing:-.02em}.mode-guide-card summary small{display:block;margin-top:5px;color:var(--og-muted);font-size:12px;font-weight:500;line-height:1.45}.mode-guide-body{padding:14px;border-top:1px solid var(--og-line);background:var(--og-paper)}.mode-guide-body p{margin:0 0 9px;color:var(--og-muted);font-size:12px;line-height:1.62}.mode-guide-body p:last-child{margin-bottom:0}.mode-guide-body b{color:var(--og-ink);font-weight:750}.mode-guide-score,.mode-guide-caution{padding:9px 10px;border-left:3px solid var(--og-brand-2);background:var(--og-ok)}.mode-guide-caution{border-left-color:var(--og-accent);background:var(--og-warn)}.mode-guide-intro{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.mode-guide-intro article{padding:12px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper);font-size:12px;line-height:1.55}.mode-guide-intro strong{display:block;margin-bottom:4px;color:var(--og-ink-strong);font-size:14px}
     details{border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper);padding:0 13px}details+details{margin-top:8px}summary{cursor:pointer;padding:13px 0;font-size:14px;font-weight:680}details p{margin:0 0 13px;color:var(--og-muted);font-size:13px;line-height:1.63}
     .final-check{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}.final-check div{padding:11px 12px;border:1px solid var(--og-line);border-radius:var(--og-radius);background:var(--og-paper);font-size:13px;line-height:1.5}.final-check div::before{content:"✓";display:inline-grid;place-items:center;width:20px;height:20px;margin-right:8px;border-radius:50%;background:var(--og-ok);color:var(--og-brand-2);font-weight:900}
     .og-footer{margin-top:26px;padding-top:18px;border-top:1px solid var(--og-line);color:var(--og-muted);font-size:12px;line-height:1.6;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}.og-footer a{color:var(--og-brand)}
     dialog{width:min(1180px,94vw);max-height:94vh;padding:0;border:1px solid var(--og-line);border-radius:8px;background:#18181c;color:white;box-shadow:0 30px 100px rgba(0,0,0,.48)}dialog::backdrop{background:rgba(20,20,20,.78);backdrop-filter:blur(6px)}.lightbox-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;background:#24242a}.lightbox-head strong{font-size:14px}.lightbox-head button{width:36px;height:36px;border:1px solid #666;border-radius:4px;background:transparent;color:white;font-size:20px;cursor:pointer}.lightbox-media{position:relative;display:grid;place-items:center;min-height:50vh;padding:12px}.lightbox-media img{max-width:100%;max-height:76vh;object-fit:contain}.lightbox-note{position:absolute;left:24px;bottom:24px;max-width:min(480px,calc(100% - 48px));padding:9px 11px;border:1px solid var(--og-line);border-radius:4px;background:rgba(247,247,244,.96);color:var(--og-ink);font-size:12px;line-height:1.5}
     @media(max-width:1100px){.og-shell{grid-template-columns:1fr}.og-detail{position:static;height:auto!important;max-height:none;overflow:visible}.og-focus-card{grid-template-columns:1fr}.overview-grid{grid-template-columns:1fr}.og-hero{grid-template-columns:1fr}.og-review-grid,.og-common-grid,.reference-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:720px){html{scroll-padding-top:60px}.og-topbar-inner{padding:8px 14px}.og-nav a:not(.keep){display:none}.og-page{padding:16px 13px 54px}.og-hero,.og-system-overview,.og-map,.og-detail,.og-lessons,.og-common,.og-reference{padding:15px}.og-hero{margin-bottom:30px}.og-hero h1{font-size:44px}.og-section-head{display:block}.og-section-head p{margin-top:8px}.og-flow-grid,.role-grid,.boundary-grid,.og-review-grid,.og-common-grid,.reference-grid,.final-check{grid-template-columns:1fr}.og-flow-card{min-height:auto}.og-selected-path-list{grid-template-columns:1fr;gap:17px}.og-selected-path-list li{min-height:auto}.og-selected-path-list li::after{content:"↓";right:50%;top:auto;bottom:-18px;transform:translateX(50%)}.og-selected-path-list li:last-child::after{content:none}.og-selected-path-head{display:block}.og-selected-path-head span{display:block;margin-top:3px}.og-shot{min-height:260px}.og-callout{max-width:calc(100% - 28px)}.og-carousel-controls{gap:7px}.og-carousel-controls button{padding:8px}.og-hero-quick{grid-template-columns:1fr 1fr}.og-hero-quick article{min-height:96px}.og-diagram{justify-content:flex-start}.og-diagram-arrow{transform:rotate(90deg)}.og-footer{display:block}.og-footer span{display:block;margin-top:8px}}
+    @media(max-width:720px){html{scroll-padding-top:60px}.og-topbar-inner{padding:8px 14px}.og-nav a:not(.keep){display:none}.og-page{padding:16px 13px 54px}.og-hero,.og-system-overview,.og-map,.og-detail,.og-lessons,.og-common,.og-reference,.og-mode-guide{padding:15px}.og-hero{margin-bottom:30px}.og-hero h1{font-size:44px}.og-section-head{display:block}.og-section-head p{margin-top:8px}.og-flow-grid,.role-grid,.boundary-grid,.og-review-grid,.og-common-grid,.reference-grid,.final-check,.mode-guide-grid,.mode-guide-intro{grid-template-columns:1fr}.og-flow-card{min-height:auto}.og-selected-path-list{grid-template-columns:1fr;gap:17px}.og-selected-path-list li{min-height:auto}.og-selected-path-list li::after{content:"↓";right:50%;top:auto;bottom:-18px;transform:translateX(50%)}.og-selected-path-list li:last-child::after{content:none}.og-selected-path-head{display:block}.og-selected-path-head span{display:block;margin-top:3px}.og-shot{min-height:260px}.og-callout{max-width:calc(100% - 28px)}.og-carousel-controls{gap:7px}.og-carousel-controls button{padding:8px}.og-hero-quick{grid-template-columns:1fr 1fr}.og-hero-quick article{min-height:96px}.og-diagram{justify-content:flex-start}.og-diagram-arrow{transform:rotate(90deg)}.og-footer{display:block}.og-footer span{display:block;margin-top:8px}}
     .creator-credit{position:fixed;z-index:55;left:max(10px,env(safe-area-inset-left));bottom:max(10px,env(safe-area-inset-bottom));display:inline-flex;align-items:baseline;gap:6px;padding:7px 10px 6px;border:2px solid #17241f;border-radius:4px;color:#17241f;background:rgba(247,236,215,.95);box-shadow:3px 4px 0 rgba(23,36,31,.22);font-size:11px;line-height:1;pointer-events:none;user-select:none;transform:rotate(-1.2deg)}.creator-credit span{color:#6d5e48;font-size:9px;font-weight:850}.creator-credit strong{font-size:12px;font-weight:1000}@media(max-width:720px){.creator-credit{left:max(7px,env(safe-area-inset-left));bottom:max(7px,env(safe-area-inset-bottom));gap:4px;padding:6px 8px 5px;box-shadow:2px 3px 0 rgba(23,36,31,.2)}.creator-credit span{font-size:8px}.creator-credit strong{font-size:10px}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
   </style>
@@ -101,6 +102,7 @@
       <nav class="og-nav" aria-label="설명서 바로가기">
         <a href="#overview">시스템 개요</a>
         <a href="#workflow">3화면 사용 흐름</a>
+        <a href="#modes">8가지 게임 모드</a>
         <a href="#troubleshooting">문제 해결</a>
         <a class="og-action og-action--primary keep" data-game-link href="../">게임 시작 화면</a>
       </nav>
@@ -237,6 +239,91 @@
       </div>
     </section>
 
+    <section class="og-mode-guide" id="modes">
+      <div class="og-section-head">
+        <div><strong>Game mode guide</strong><h2>8가지 게임 모드, 이렇게 운영하세요</h2></div>
+        <p>모드 이름을 누르면 진행 순서·승리 조건·점수와 교사 주의사항이 열립니다. 실제 학급 결정과 순수 게임을 먼저 구분하세요.</p>
+      </div>
+      <div class="mode-guide-intro">
+        <article><strong>0~3단계 · 실제 의견을 다룰 때</strong>학생의 표 가치는 모두 1표입니다. 정식 투표·결과 쇼·표심전은 원래 선택을 바꾸지 않고, 표심 이동전은 토론 뒤 학생이 직접 낸 최종 선택을 집계합니다.</article>
+        <article><strong>4단계 · 처음부터 게임이라고 알릴 때</strong>소수파·정원·비밀 단서·개인 임무가 승패를 만듭니다. 실제 학급 의사결정이나 민감한 의견 조사에는 사용하지 마세요.</article>
+      </div>
+      <div class="mode-guide-grid">
+        <details class="mode-guide-card" open>
+          <summary><span class="mode-guide-level">Lv.0 · 공정 투표</span><span class="mode-guide-name">✓ 정식 투표</span><small>가장 단순하고 조용한 비밀 투표</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 학급 행사 선택, 역할 선정, 실제 의견 조사처럼 결과 자체가 중요한 때 사용합니다.</p>
+            <p><b>진행:</b> 비밀 투표 → 교사가 정한 방식으로 결과 공개 → 결과 확정 순서입니다.</p>
+            <p class="mode-guide-score"><b>결과·점수:</b> 학생마다 1표이며 최종 득표 순위를 그대로 적용합니다. 별도의 게임 점수는 없습니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 민감한 사안은 결과 표시를 ‘1위만’ 또는 ‘학생 화면 숨김’으로 정하세요.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.1 · 공정 투표</span><span class="mode-guide-name">🎬 결과 쇼</span><small>표는 그대로 두고 공개 순간만 극적으로</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 실제 선택 결과는 공정하게 유지하면서 교실 TV에서 긴장감 있게 발표하고 싶을 때 사용합니다.</p>
+            <p><b>진행:</b> 비밀 투표 → 낮은 순위부터·드럼롤·한 번에 중 선택한 방식으로 공개 → 결과 확정입니다.</p>
+            <p class="mode-guide-score"><b>결과·점수:</b> 정식 투표와 같은 1인 1표이며 게임 점수는 없습니다. 공개 연출만 달라집니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> TV에서 BGM을 먼저 켜고, 연출을 살리려면 ‘낮은 순위부터’ 또는 ‘한 표씩 드럼롤’을 고르세요.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.2 · 공정 투표</span><span class="mode-guide-name">🔮 표심전</span><small>반 전체의 1·2위와 표 차이를 읽는 예측전</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 실제 선택은 솔직하게 받으면서 ‘우리 반 마음 읽기’를 별도 게임으로 즐기고 싶을 때 사용합니다.</p>
+            <p><b>진행:</b> 비밀 투표 → 1차 예측 → 정보 상점 → 최종 예측 → 결과 공개입니다. 학생은 정보 토큰 2개로 정보를 사거나 아낍니다.</p>
+            <p class="mode-guide-score"><b>점수:</b> 1위 3점, 2위 2점, 표 차이 구간 2점, 세 항목 완벽 적중 2점, 남은 토큰당 1점입니다. 올인은 예측 점수 부분을 2배로 만듭니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 정보 아이템과 예측은 실제 투표를 바꾸지 않습니다. 최종 예측 수정은 세컨드 찬스를 쓴 학생만 한 번 가능합니다.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.3 · 전략 투표</span><span class="mode-guide-name">↝ 표심 이동전</span><small>토론 전후에 몇 표가 움직일지 예측</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 국어 토론, 사회 쟁점, 도덕적 판단에서 토론 전후의 변화 자체를 살펴볼 때 좋습니다. 학생 2명 이상이 필요합니다.</p>
+            <p><b>진행:</b> 1차 투표 → 혼잡·보통·한산 신호와 협상 → 이동 인원·1위 변경·표 차이 변화 예측 → 최종 선택 → 공개입니다.</p>
+            <p class="mode-guide-score"><b>점수:</b> 바꾼 학생 수 구간, 1위 변경 여부, 1·2위 격차 변화가 각각 맞으면 2점씩, 최대 6점입니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 중간에는 정확한 표 수가 아니라 혼잡도만 공개됩니다. 누구의 표가 바뀌었는지는 공개하지 마세요.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.4 · 완전 게임</span><span class="mode-guide-name">🚪 소수파 생존</span><small>최소 인원을 넘긴 선택지 중 가장 적은 쪽이 승리</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 적당한 규모의 연합을 만들고 상대의 이동을 읽는 심리전을 할 때 사용합니다. 학생 2명 이상이 필요합니다.</p>
+            <p><b>진행:</b> 1차 선택 → 혼잡도 신호와 협상 → 최종 선택 → 결과 공개입니다.</p>
+            <p class="mode-guide-score"><b>승리·점수:</b> 교사가 정한 생존 최소 인원을 채운 선택지 중 최종 인원이 가장 적은 곳이 승리하며, 그곳 학생은 3점입니다. 조건을 채운 곳이 없으면 승자가 없습니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 기본 최소 인원은 3명입니다. 역할 카드를 켜면 영향가는 2표지만 최종 이동을 할 수 없습니다. 실제 의견 조사에는 사용하지 마세요.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.4 · 완전 게임</span><span class="mode-guide-name">🚀 정확히 N명</span><small>선택지마다 정원을 정확하게 맞추는 협력과 배신</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> “빨간 대피소 4명, 파란 대피소 6명”처럼 정원을 맞추는 협력 게임을 할 때 사용합니다. 학생 2명 이상이 필요합니다.</p>
+            <p><b>진행:</b> 선택지별 정원 설정 → 1차 선택 → 혼잡도 신호와 협상 → 최종 선택 → 공개입니다.</p>
+            <p class="mode-guide-score"><b>승리·점수:</b> 최종 인원이 정원과 정확히 같은 선택지는 모두 성공합니다. 성공한 선택지를 고른 학생은 3점이며, 여러 선택지가 동시에 성공할 수 있습니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 전체 학생 수와 각 정원을 먼저 비교하세요. 정원보다 한 명 많거나 적어도 실패합니다.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.4 · 완전 게임</span><span class="mode-guide-name">🧩 정보 연합전</span><small>팀원이 받은 다른 단서를 합쳐 전체 결과 추리</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 논리 추리, 자료 해석, 팀 의사소통 활동에 사용합니다. 학생 2명 이상이 필요합니다.</p>
+            <p><b>진행:</b> 비밀 투표 → 개인 단서 확인·팀 공유 → 모든 선택지의 순위와 득표수 제출 → 결과 공개입니다.</p>
+            <p class="mode-guide-score"><b>팀 점수:</b> 순위 위치 하나를 맞힐 때마다 1점, 정확한 득표수 하나마다 1점, 전체 순위를 모두 맞히면 추가 3점입니다. 같은 팀 학생이 같은 점수를 받습니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> ‘거짓 단서 1개’를 켜면 제공된 단서 중 하나가 거짓입니다. 팀 답안은 마지막 제출이 팀 전체 답을 덮어씁니다.</p>
+          </div>
+        </details>
+        <details class="mode-guide-card">
+          <summary><span class="mode-guide-level">Lv.4 · 완전 게임</span><span class="mode-guide-name">🎭 비밀 목표전</span><small>서로 다른 개인 승리 조건을 숨기고 설득</small></summary>
+          <div class="mode-guide-body">
+            <p><b>언제:</b> 선택지를 1위·2위로 만들기, 표 차이를 좁히기처럼 서로 충돌하는 목표로 강한 심리전을 할 때 사용합니다. 학생 3명 이상이 필요합니다.</p>
+            <p><b>진행:</b> 개인 임무 확인 → 1차 선택 → 혼잡도 신호와 협상 → 최종 선택 → 결과 공개입니다.</p>
+            <p class="mode-guide-score"><b>승리·점수:</b> 자신의 임무를 달성한 학생은 4점입니다. 앱은 1위·2위·2표 이내·과반수 방지·정확한 표 수·모든 선택지 최소 2표 같은 임무를 배정합니다.</p>
+            <p class="mode-guide-caution"><b>교사 체크:</b> 역할 카드를 함께 켤 수 있습니다. 학생이 자기 의견이 아니라 임무를 위해 표를 내므로 실제 학급 의사결정에는 사용하지 마세요.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
     <section class="og-common" id="troubleshooting">
       <div class="og-section-head">
         <div><strong>Common checks</strong><h2>화면이 뜻대로 움직이지 않을 때</h2></div>
@@ -344,7 +431,7 @@
       const roleName=id=>id==='teacher'?'교사용':id==='student'?'학생용':'교실 TV용';
       const list=items=>(items||[]).map((x,i)=>`<li><b>${i+1}</b><span>${esc(x)}</span></li>`).join('');
       function syncHeight(){if(!shell||!map||!detail)return;if(matchMedia('(max-width:1100px)').matches){shell.style.removeProperty('--og-map-height');return;}shell.style.setProperty('--og-map-height',`${Math.round(map.getBoundingClientRect().height)}px`);}
-      function drawConnectors(){if(!connector||!grid)return;const board=connector.parentElement,br=board.getBoundingClientRect(),cards={};grid.querySelectorAll('[data-flow]').forEach(el=>cards[el.dataset.flow]=el);connector.setAttribute('viewBox',`0 0 ${Math.max(1,Math.round(br.width))} ${Math.max(1,Math.round(br.height))}`);const links=[];guideData.forEach((flow,i)=>(flow.next||((i<guideData.length-1)?[guideData[i+1].id]:[])).forEach(to=>links.push([flow.id,to])));connector.innerHTML=links.map((pair,i)=>{const a=cards[pair[0]],b=cards[pair[1]];if(!a||!b)return'';const ar=a.getBoundingClientRect(),cr=b.getBoundingClientRect(),x1=ar.left+ar.width/2-br.left,y1=ar.top+ar.height/2-br.top,x2=cr.left+cr.width/2-br.left,y2=cr.top+cr.height/2-br.top,dx=Math.max(35,Math.abs(x2-x1)*.42),mx=(x1+x2)/2,my=(y1+y2)/2;return `<path d="M ${x1} ${y1} C ${x1+dx} ${y1} ${x2-dx} ${y2} ${x2} ${y2}"></path><circle cx="${mx}" cy="${my}" r="13"></circle><text x="${mx}" y="${my+4}" text-anchor="middle">${i+1}</text>`;}).join('');}
+      function drawConnectors(){if(!connector||!grid)return;const board=connector.parentElement,br=board.getBoundingClientRect(),cards={};grid.querySelectorAll('[data-flow]').forEach(el=>cards[el.dataset.flow]=el);connector.setAttribute('viewBox',`0 0 ${Math.max(1,Math.round(br.width))} ${Math.max(1,Math.round(br.height))}`);const links=[];guideData.forEach((flow,i)=>(flow.next||((i<guideData.length-1)?[guideData[i+1].id]:[])).forEach(to=>links.push([flow.id,to])));connector.innerHTML=links.map(pair=>{const a=cards[pair[0]],b=cards[pair[1]];if(!a||!b)return'';const ar=a.getBoundingClientRect(),cr=b.getBoundingClientRect(),x1=ar.left+ar.width/2-br.left,y1=ar.top+ar.height/2-br.top,x2=cr.left+cr.width/2-br.left,y2=cr.top+cr.height/2-br.top,dx=Math.max(35,Math.abs(x2-x1)*.42);return `<path d="M ${x1} ${y1} C ${x1+dx} ${y1} ${x2-dx} ${y2} ${x2} ${y2}"></path>`;}).join('');}
       function renderNav(){grid.innerHTML=guideData.map((f,i)=>`<button type="button" class="og-flow-card" data-flow="${f.id}"><span class="og-index">${i+1}</span><h3>${f.icon} ${esc(f.title)}</h3><p>${esc(f.summary)}</p><div class="og-mini-path">${f.steps.slice(0,3).map(s=>`<span>${esc(s)}</span>`).join('')}</div></button>`).join('');tabs.innerHTML=guideData.map((f,i)=>`<button type="button" class="og-tab" data-flow="${f.id}">${i+1}. ${f.icon} ${roleName(f.id)}</button>`).join('');requestAnimationFrame(drawConnectors);}
       function renderFlow(id,scroll=false){activeFlow=guideData.find(f=>f.id===id)||guideData[0];activeFocus=0;document.querySelectorAll('[data-flow]').forEach(el=>el.classList.toggle('is-active',el.dataset.flow===activeFlow.id));document.getElementById('selectedFlowLabel').textContent=`${activeFlow.icon} ${roleName(activeFlow.id)} 전체 6단계`;document.getElementById('selectedFlowMap').innerHTML=activeFlow.steps.map((step,i)=>`<li><b>${i+1}</b><span>${esc(step)}</span></li>`).join('');document.getElementById('detailIcon').textContent=activeFlow.icon;document.getElementById('detailAudience').textContent=activeFlow.audience;document.getElementById('detailTitle').textContent=activeFlow.title;document.getElementById('detailSummary').textContent=activeFlow.summary;document.getElementById('detailSteps').innerHTML=list(activeFlow.steps);document.getElementById('detailChecks').innerHTML=list(activeFlow.checks);document.getElementById('detailNotes').innerHTML=activeFlow.notes.map(n=>`<li>${esc(n)}</li>`).join('');document.getElementById('lessonTitle').textContent=`${roleName(activeFlow.id)} 실제 화면 따라가기`;document.getElementById('lessonCopy').textContent='화면을 누르면 크게 볼 수 있습니다. 번호는 위 사용 흐름과 같습니다.';renderFocus();renderReviews();requestAnimationFrame(()=>{syncHeight();drawConnectors();});if(scroll)document.getElementById('screens').scrollIntoView({behavior:'smooth'});}
       function renderFocus(){focusCards.innerHTML=activeFlow.focus.map((x,i)=>`<article class="og-focus-card" data-focus="${i}"><figure class="og-shot" tabindex="0" role="button" data-lightbox-src="${x.image}" data-lightbox-title="${esc(x.title)}" data-lightbox-note="${esc(x.callout)}"><img src="${x.image}" alt="${esc(x.alt)}"><figcaption class="og-callout">${esc(x.callout)}</figcaption></figure><div class="og-focus-copy"><div><span class="og-badge">단계 ${i+1}</span><h3>${esc(x.title)}</h3><p>${esc(x.copy)}</p><ul>${x.checks.map(check=>`<li>${esc(check)}</li>`).join('')}</ul></div><div class="og-focus-meta">${x.chips.map(c=>`<span class="og-chip">${esc(c)}</span>`).join('')}</div></div></article>`).join('');dots.innerHTML=activeFlow.focus.map((_,i)=>`<button type="button" class="og-dot" data-focus-dot="${i}"><span class="og-sr-only">${i+1}번 화면</span></button>`).join('');showFocus(0);}

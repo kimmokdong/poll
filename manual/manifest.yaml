@@ -3,7 +3,7 @@ manual:
   title: "마음신호 교사·학생·교실 TV 통합 사용설명서"
   language_policy: "learner-facing-ko"
   primary_audience: "처음 마음신호를 사용하는 담임교사와 학생, 교실 TV 진행자"
-  target_version: "Cloudflare Workers·Durable Objects 공개 배포본 및 교사 전용 진입 UI 2026-08-22"
+  target_version: "Cloudflare Workers·Durable Objects 공개 배포본 및 압축형 교사 모드 선택 UI 2026-08-23"
   delivery: "single-page-static-html"
   entry: "index.html"
   source_of_truth:

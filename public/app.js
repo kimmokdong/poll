@@ -170,11 +170,11 @@ function teacherView() {
 function teacherSetup(round) {
   const selected = MODES[draftMode];
   return `<div class="dashboard-grid">
-    <section class="panel glass">
+    <section class="panel glass setup-panel">
       ${round ? `<div class="panel-head"><div><span class="phase-badge">방금 끝난 게임</span><h2>${esc(round.title)}</h2><p>${MODES[round.mode].name} 결과가 저장되었습니다.</p></div><button class="btn btn-ghost btn-small" data-action="fullscreen">결과 크게 보기</button></div>${resultList(round.results, round.totalPlayers)}<div class="divider"></div>` : ''}
-      <div class="panel-head"><div><h2>새 투표 게임</h2><p>목적에 맞는 강도를 고르세요. 실제 의사결정에는 0~3단계를 권장합니다.</p></div><span class="phase-badge">${selected.category}</span></div>
+      <div class="panel-head setup-head"><div><h2>새 투표 게임</h2><p><strong>${selected.icon} ${selected.name}</strong> · ${selected.summary}<span class="setup-guidance"> 실제 의사결정에는 0~3단계를 권장합니다.</span></p></div><span class="phase-badge">${selected.category}</span></div>
       <div class="mode-grid">${Object.entries(MODES).map(([key, mode]) => `
-        <button class="mode-card ${key === draftMode ? 'selected' : ''}" data-action="select-mode" data-mode="${key}">
+        <button class="mode-card ${key === draftMode ? 'selected' : ''}" data-action="select-mode" data-mode="${key}" aria-pressed="${key === draftMode}" aria-label="Lv.${mode.level} ${mode.name}. ${mode.summary}" title="${mode.name} · ${mode.summary}">
           <span class="mode-art" aria-hidden="true"></span><span class="mode-number">Lv.${mode.level}</span><strong>${mode.icon} ${mode.name}</strong><small>${mode.summary}</small>
         </button>`).join('')}</div>
       ${roundForm()}
@@ -187,7 +187,7 @@ function roundForm() {
   const exact = draftMode === 'exact';
   const game = ['minority', 'mission'].includes(draftMode);
   const alliance = draftMode === 'alliance';
-  return `<form id="round-form" class="round-form form-stack">
+  return `<form id="round-form" class="round-form form-stack setup-form">
     <div class="two-col">
       <div class="field"><label for="round-title">질문 또는 게임 제목</label><input class="input" id="round-title" name="title" maxlength="60" placeholder="예: 금요일 마지막 활동은?" required></div>
       <div class="field"><label for="timer-seconds">단계별 제한 시간</label><select class="select" id="timer-seconds" name="timerSeconds"><option value="0">시간 제한 없음</option><option value="20">20초</option><option value="30">30초</option><option value="45" selected>45초</option><option value="60">1분</option><option value="120">2분</option></select></div>

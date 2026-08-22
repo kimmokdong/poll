@@ -7,6 +7,7 @@ const displaySource = await readFile(new URL('../public/display.js', import.meta
 const indexHtml = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const displayHtml = await readFile(new URL('../public/display.html', import.meta.url), 'utf8');
 const manualHtml = await readFile(new URL('../manual/index.html', import.meta.url), 'utf8');
+const stylesSource = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
 
 test('공개 메인은 교사 전용 진입점만 제공한다', () => {
   assert.doesNotMatch(appSource, /data-action="open-student"/);
@@ -30,5 +31,20 @@ test('모든 공개 화면에 만든이 김현승쌤 표기를 유지한다', ()
   for (const source of [indexHtml, displayHtml, manualHtml]) {
     assert.match(source, /aria-label="만든이 김현승쌤"/);
     assert.match(source, /<span>만든이<\/span><strong>김현승쌤<\/strong>/);
+  }
+});
+
+test('교사 모드 선택기는 데스크톱에서 한 줄, 선택지는 두 열로 압축한다', () => {
+  assert.match(stylesSource, /\.mode-grid\s*\{[^}]*repeat\(8,/s);
+  assert.match(stylesSource, /\.option-editor\s*\{[^}]*repeat\(2,/s);
+  assert.match(appSource, /aria-pressed="\$\{key === draftMode\}"/);
+});
+
+test('설명서는 번호 없는 연결선과 8가지 게임 모드 상세 안내를 제공한다', () => {
+  assert.equal((manualHtml.match(/class="mode-guide-card"/g) || []).length, 8);
+  assert.doesNotMatch(manualHtml, /<circle cx="\$\{mx\}"/);
+  assert.doesNotMatch(manualHtml, /<text x="\$\{mx\}"/);
+  for (const mode of ['정식 투표', '결과 쇼', '표심전', '표심 이동전', '소수파 생존', '정확히 N명', '정보 연합전', '비밀 목표전']) {
+    assert.match(manualHtml, new RegExp(mode));
   }
 });

@@ -195,15 +195,15 @@ h1, h2, h3, p { margin-top: 0; }
 .panel-head h2 { margin-bottom: 5px; font-size: 24px; letter-spacing: -.045em; }
 .panel-head p { margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .section-title { margin: 28px 0 12px; font-size: 14px; font-weight: 900; }
-.mode-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; }
+.mode-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 7px; }
 .mode-card {
   position: relative;
-  min-height: 155px;
-  padding: 15px;
+  min-height: 78px;
+  padding: 8px 5px 7px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 20px;
-  text-align: left;
+  text-align: center;
   background: rgba(255,255,255,.7);
   cursor: pointer;
   transition: transform .18s, border .18s, box-shadow .18s;
@@ -218,13 +218,19 @@ h1, h2, h3, p { margin-top: 0; }
 .mode-card:nth-child(6) .mode-art { background-position: 33.333% 100%; }
 .mode-card:nth-child(7) .mode-art { background-position: 66.666% 100%; }
 .mode-card:nth-child(8) .mode-art { background-position: 100% 100%; }
-.mode-card .mode-number { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-bottom: 22px; border-radius: 9px; color: var(--primary-dark); background: #ece8ff; font-size: 12px; font-weight: 950; }
-.mode-card strong { display: block; margin-bottom: 5px; font-size: 14px; }
-.mode-card small { display: block; max-width: 120px; color: var(--muted); line-height: 1.45; }
-.round-form { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+.mode-card .mode-number { display: inline-grid; place-items: center; width: auto; min-width: 32px; height: 21px; margin-bottom: 7px; padding: 0 5px; border-radius: 7px; color: var(--primary-dark); background: #ece8ff; font-size: 9px; font-weight: 950; }
+.mode-card strong { display: block; margin: 0; font-size: 12px; line-height: 1.28; word-break: keep-all; }
+.mode-card small { display: none; }
+.round-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.setup-panel { padding: 22px; }
+.setup-panel .panel-head { margin-bottom: 13px; }
+.setup-head { align-items: center; }
+.setup-head p strong { color: var(--ink); }
+.setup-guidance { color: var(--muted); }
+.setup-form { gap: 11px; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
-.option-editor { display: grid; gap: 9px; }
+.option-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
 .option-row { display: grid; grid-template-columns: 1fr 100px 42px; gap: 8px; }
 .option-row:not(.with-capacity) { grid-template-columns: 1fr 42px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.55); }
@@ -378,7 +384,7 @@ h1, h2, h3, p { margin-top: 0; }
   .hero-art { min-height: 380px; }
   .mini-features { grid-template-columns: repeat(2, 1fr); }
   .dashboard-grid, .live-grid { grid-template-columns: 1fr; }
-  .mode-grid { grid-template-columns: repeat(2, 1fr); }
+  .mode-grid { grid-template-columns: repeat(4, 1fr); }
   .side-panel { order: -1; }
 }
 @media (max-width: 640px) {
@@ -396,8 +402,9 @@ h1, h2, h3, p { margin-top: 0; }
   .mini-feature { padding: 14px; }
   .auth-card, .panel, .stage, .student-main { padding: 22px; border-radius: 22px; }
   .mode-grid { grid-template-columns: 1fr 1fr; }
-  .mode-card { min-height: 145px; }
+  .mode-card { min-height: 72px; }
   .two-col, .three-col { grid-template-columns: 1fr; }
+  .option-editor { grid-template-columns: 1fr; }
   .option-row { grid-template-columns: 1fr 76px 40px; }
   .option-row:not(.with-capacity) { grid-template-columns: 1fr 40px; }
   .stage-head { display: block; }
@@ -594,10 +601,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .mode-art { display: none; }
 .mode-card .mode-number {
   width: auto;
-  min-width: 36px;
-  height: 25px;
-  margin-bottom: 19px;
-  padding: 0 7px;
+  min-width: 32px;
+  height: 21px;
+  margin-bottom: 7px;
+  padding: 0 5px;
   border: 1px solid #76591b;
   border-radius: 2px;
   color: #17241f;
@@ -702,7 +709,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .hero, .auth-card, .panel, .stage, .student-main { border-radius: 9px; }
   .hero-art { min-height: 340px; border-width: 8px; }
   .hero-art::before { top: 52px; }
-  .mode-card { min-height: 140px; }
+  .mode-card { min-height: 72px; }
 }
 
 .creator-credit {
