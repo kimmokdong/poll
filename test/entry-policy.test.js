@@ -8,6 +8,22 @@ const indexHtml = await readFile(new URL('../public/index.html', import.meta.url
 const displayHtml = await readFile(new URL('../public/display.html', import.meta.url), 'utf8');
 const manualHtml = await readFile(new URL('../manual/index.html', import.meta.url), 'utf8');
 const stylesSource = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
+const teacherStepImages = await Promise.all([
+  '02-teacher-create.png',
+  '14-teacher-tv-button.png',
+  '06-teacher-setup.png',
+  '07-teacher-live.png',
+  '09-teacher-progress.png',
+  '12-teacher-reveal.png'
+].map((name) => readFile(new URL(`../manual/assets/screenshots/${name}`, import.meta.url))));
+
+function pngDimensions(buffer) {
+  assert.equal(buffer.subarray(1, 4).toString('ascii'), 'PNG');
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20)
+  };
+}
 
 test('공개 메인은 교사 전용 진입점만 제공한다', () => {
   assert.doesNotMatch(appSource, /data-action="open-student"/);
@@ -56,4 +72,10 @@ test('설명서 본문은 큰 글자와 쉬운 단계 표현을 유지한다', (
   assert.match(manualHtml, /1\. 이렇게 하세요/);
   assert.match(manualHtml, /2\. 잘됐는지 확인하세요/);
   assert.match(manualHtml, /3\. 이것만 조심하세요/);
+});
+
+test('교사용 실제 화면 6단계 이미지는 모두 같은 크기다', () => {
+  for (const image of teacherStepImages) {
+    assert.deepEqual(pngDimensions(image), { width: 1440, height: 1000 });
+  }
 });

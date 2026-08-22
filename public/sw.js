@@ -1,4 +1,4 @@
-const CACHE = 'maeum-signal-v9-readable-manual';
+const CACHE = 'maeum-signal-v10-uniform-manual-images';
 const ASSETS = ['/', '/styles.css', '/app.js', '/display/', '/display.css', '/display.js', '/manifest.webmanifest', '/assets/app-icon.png', '/assets/hero-classroom.png', '/assets/skill-atlas.png', '/assets/mode-atlas.png'];
 
 self.addEventListener('install', (event) => {
