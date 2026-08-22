@@ -97,6 +97,7 @@ button { cursor: pointer; }
 .lobby-code-card > * { position: relative; }
 .lobby-code-card span { color: var(--muted); font-weight: 800; }
 .lobby-code { display: block; margin: 14px 0 8px; color: white; font-size: clamp(48px, 5.8vw, 88px); line-height: 1; letter-spacing: .12em; text-indent: .12em; text-shadow: 0 0 28px rgba(97,244,221,.4); }
+.lobby-invite-title { display: block; margin: 16px 0 12px; color: white; font-size: clamp(28px, 2.8vw, 42px); line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
 .join-address { display: block; color: var(--cyan); font-size: clamp(13px, 1.25vw, 18px); word-break: break-all; }
 .people-badge { display: inline-flex; gap: 8px; align-items: baseline; margin-top: 20px; padding: 9px 16px; border-radius: 999px; background: rgba(4,4,18,.42); font-size: 14px; }
 .people-badge strong { color: var(--lime); font-size: 24px; }
@@ -387,6 +388,7 @@ body { background: #0c1713; }
 }
 .lobby-code-card span { color: #495d53; }
 .lobby-code { color: #173e31; text-shadow: none; }
+.lobby-invite-title { color: #173e31; }
 .join-address { color: #bd3d20; }
 .people-badge { border: 1px solid #8f8169; border-radius: 4px; color: #17241f; background: #e5d7bb; }
 .people-badge strong { color: #bd3d20; }

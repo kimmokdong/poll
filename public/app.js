@@ -40,7 +40,7 @@ let session = readSession();
 let state = null;
 let eventSource = null;
 let reconnectTimer = null;
-const linkedRoom = new URLSearchParams(location.search).get('room')?.trim().toUpperCase().slice(0, 5) || '';
+let linkedRoom = new URLSearchParams(location.search).get('room')?.trim().toUpperCase().slice(0, 5) || '';
 let screen = linkedRoom ? 'student' : 'landing';
 let draftMode = 'prediction';
 let draftOptions = [
@@ -84,18 +84,18 @@ function header(extra = '') {
 
 function landing() {
   return `<div class="shell">
-    ${header('<span class="status-chip"><i class="online-dot"></i> 설치 없이 바로 시작</span>')}
+    ${header('<span class="status-chip"><i class="online-dot"></i> 교사용 운영 화면</span>')}
     <section class="hero glass">
       <div>
-        <p class="eyebrow">모두의 선택이 이야기가 되는 순간</p>
+        <p class="eyebrow">선생님을 위한 교실 투표 방송국</p>
         <h1>손들기보다<br><span class="gradient-text">짜릿한 투표</span></h1>
-        <p class="hero-copy">모두가 동시에 비밀 선택하고, 서로 다른 정보를 모아 추리하고, 결과를 한 단계씩 공개하세요. 공정한 학급 결정부터 치열한 심리전까지 한곳에서 이어집니다.</p>
+        <p class="hero-copy">학급방과 투표를 만들고, 교실 TV에서 결과를 한 단계씩 공개하세요. 학생은 방을 만든 뒤 복사한 참여 링크로만 바로 들어옵니다.</p>
         <div class="button-row">
-          <button class="btn btn-primary" data-action="open-teacher-create">교사로 방 만들기 <span>→</span></button>
-          <button class="btn btn-pink" data-action="open-student">학생으로 입장하기</button>
+          <button class="btn btn-primary" data-action="open-teacher-create">새 학급방 만들기 <span>→</span></button>
           <button class="btn btn-ghost" data-action="open-teacher-login">기존 방 관리</button>
           <a class="btn btn-ghost" href="/manual/" target="_blank" rel="noopener">📘 사용설명서</a>
         </div>
+        <div class="teacher-invite-guide"><span>🔗</span><div><strong>학생 참여는 방을 만든 다음</strong><small>교사 화면의 ‘학생 참여 링크 복사’를 눌러 전달하세요.</small></div></div>
         <div class="mini-features">
           <div class="mini-feature"><span>🙈</span><strong>완전 비밀 선택</strong><small>누가 무엇을 골랐는지 공개하지 않아요.</small></div>
           <div class="mini-feature"><span>🧠</span><strong>8가지 게임</strong><small>정식 투표부터 비밀 목표전까지.</small></div>
@@ -131,17 +131,21 @@ function authScreen(kind) {
         </form>`
     },
     student: {
-      eyebrow: '학생 입장', title: '마음신호 보내기', description: '처음 한 번만 입장하면 이 기기에 반 정보가 저장됩니다.', form: `
+      eyebrow: '선생님이 보낸 초대', title: '이름만 입력하면 준비 끝', description: `방 ${esc(linkedRoom)}에 초대되었습니다. 이 기기에는 입장 정보가 안전하게 저장됩니다.`, form: `
         <form id="student-join-form" class="form-stack">
-          <div class="field"><label for="join-code">방 코드</label><input class="input" id="join-code" name="code" maxlength="5" autocomplete="off" placeholder="칠판의 5자리 코드" value="${esc(linkedRoom)}" required autofocus></div>
-          <div class="field"><label for="student-name">내 이름</label><input class="input" id="student-name" name="name" maxlength="18" autocomplete="name" placeholder="예: 김하늘" required></div>
+          <input type="hidden" name="code" value="${esc(linkedRoom)}">
+          <div class="invite-room-badge"><span>참여할 방</span><strong>${esc(linkedRoom)}</strong></div>
+          <div class="field"><label for="student-name">내 이름</label><input class="input" id="student-name" name="name" maxlength="18" autocomplete="name" placeholder="예: 김하늘" required autofocus></div>
           <button class="btn btn-pink" type="submit">입장하기</button>
         </form>`
     }
   };
   const config = configs[kind];
+  const headerAction = kind === 'student'
+    ? '<span class="status-chip"><i class="online-dot"></i> 학생 참여 화면</span>'
+    : '<button class="btn btn-ghost btn-small" data-action="home">처음으로</button>';
   return `<div class="shell">
-    ${header('<button class="btn btn-ghost btn-small" data-action="home">처음으로</button>')}
+    ${header(headerAction)}
     <div class="auth-wrap"><section class="auth-card glass">
       <p class="eyebrow">${config.eyebrow}</p><h1>${config.title}</h1><p>${config.description}</p>${config.form}
     </section></div>
@@ -215,14 +219,15 @@ function optionRow(option, index, exact) {
 
 function roomCodeCard() {
   const joinUrl = state.room.joinUrl || location.origin;
-  return `<div class="big-code"><small>학생에게 알려줄 방 코드</small><strong>${esc(state.room.code)}</strong><span>${esc(joinUrl)}</span><div class="big-code-actions"><button class="btn btn-small join-link-button" data-action="copy-link">🔗 입장 링크 복사</button><button class="btn btn-small btn-tv" data-action="open-display">📺 교실 TV 열기</button></div></div>`;
+  const inviteUrl = `${joinUrl.replace(/\/$/, '')}/?room=${encodeURIComponent(state.room.code)}`;
+  return `<div class="big-code"><small>학급방 코드 · 학생에게는 아래 링크만 공유</small><strong>${esc(state.room.code)}</strong><span>${esc(inviteUrl)}</span><div class="big-code-actions"><button class="btn btn-small join-link-button" data-action="copy-link">🔗 학생 참여 링크 복사</button><button class="btn btn-small btn-tv" data-action="open-display">📺 교실 TV 열기</button></div></div>`;
 }
 
 function roster() {
   const online = state.players.filter((player) => player.online).length;
   return `<div class="section-title">참여 학생 <span class="helper">${online}/${state.players.length}명 접속</span></div>
     <div class="roster">${state.players.length ? state.players.map((player) => `
-      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${esc(player.team)}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? '접속 중' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>방 코드를 알려 주세요.</div>'}</div>
+      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${esc(player.team)}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? '접속 중' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>학생 참여 링크를 공유해 주세요.</div>'}</div>
     <div class="section-title title-with-action"><span>팀 점수</span>${state.players.length ? '<button class="btn btn-ghost btn-small" data-action="reset-scores">점수 초기화</button>' : ''}</div>${teamBoard()}`;
 }
 
@@ -450,6 +455,7 @@ function connect() {
 }
 
 async function restore() {
+  if (linkedRoom && (session?.role !== 'student' || session.code !== linkedRoom)) return render();
   if (!session?.code || !session?.token) return render();
   try {
     const next = await api(`/api/rooms/${session.code}/state`);
@@ -508,18 +514,28 @@ app.addEventListener('click', async (event) => {
   const command = button.dataset.action;
   if (command === 'home') {
     if (state) return;
-    screen = 'landing'; render();
+    screen = linkedRoom ? 'student' : 'landing'; render();
   } else if (command === 'open-teacher-create') { screen = 'teacher-create'; render(); }
   else if (command === 'open-teacher-login') { screen = 'teacher-login'; render(); }
-  else if (command === 'open-student') { screen = 'student'; render(); }
   else if (command === 'logout') {
-    eventSource?.close(); saveSession(null); state = null; screen = 'landing'; render();
+    const studentRoom = session?.role === 'student' ? (state?.room?.code || session.code) : '';
+    eventSource?.close(); saveSession(null); state = null;
+    if (studentRoom) {
+      linkedRoom = studentRoom;
+      history.replaceState({}, '', `/?room=${encodeURIComponent(studentRoom)}`);
+      screen = 'student';
+    } else {
+      linkedRoom = '';
+      history.replaceState({}, '', '/');
+      screen = 'landing';
+    }
+    render();
   } else if (command === 'copy-code') {
     await navigator.clipboard?.writeText(state.room.code); showToast(`방 코드 ${state.room.code}를 복사했어요.`);
   } else if (command === 'copy-link') {
     const base = state.room.joinUrl || location.origin;
-    await navigator.clipboard?.writeText(`${base}/?room=${state.room.code}`);
-    showToast('학생 입장 링크를 복사했어요.');
+    await navigator.clipboard?.writeText(`${base.replace(/\/$/, '')}/?room=${state.room.code}`);
+    showToast('학생 참여 링크를 복사했어요.');
   } else if (command === 'open-display') {
     const displayWindow = window.open(`/display/${encodeURIComponent(state.room.code)}`, '_blank');
     if (displayWindow) displayWindow.opener = null;

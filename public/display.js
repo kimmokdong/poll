@@ -121,11 +121,9 @@ function frame(content, round = null, footerMessage = '') {
 
 function lobby() {
   const online = state.players.filter((player) => player.online).length;
-  const base = state.room.joinUrl || location.origin;
-  const joinAddress = base;
   return frame(`<section class="stage-content lobby-stage">
-    <div><p class="eyebrow">${esc(state.room.className)} · READY ROOM</p><h1 class="stage-title">모두의 선택이<br><span class="gradient-word">이야기</span>가 되는 순간</h1><p class="stage-copy">학생은 방 코드와 이름으로 입장하세요. 투표가 시작되면 이 화면이 교실 전체의 무대가 됩니다.</p></div>
-    <div class="lobby-code-card"><span>학생 입장 코드</span><strong class="lobby-code room-code-value">${esc(visibleCode())}</strong><small class="join-address">${esc(joinAddress)}</small><div class="people-badge">현재 <strong>${online}</strong>명 접속 · 전체 ${state.players.length}명</div></div>
+    <div><p class="eyebrow">${esc(state.room.className)} · READY ROOM</p><h1 class="stage-title">모두의 선택이<br><span class="gradient-word">이야기</span>가 되는 순간</h1><p class="stage-copy">학생은 선생님이 보낸 참여 링크를 열고 이름만 입력하세요. 투표가 시작되면 이 화면이 교실 전체의 무대가 됩니다.</p></div>
+    <div class="lobby-code-card"><span>학생 참여 안내</span><strong class="lobby-invite-title">선생님이 보낸<br>참여 링크를<br>열어 주세요</strong><small class="join-address">교사 화면 → 학생 참여 링크 복사</small><div class="people-badge">현재 <strong>${online}</strong>명 접속 · 전체 ${state.players.length}명</div></div>
   </section>`, null, `${state.room.teacherName}의 다음 신호를 기다리는 중`);
 }
 
