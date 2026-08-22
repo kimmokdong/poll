@@ -1,0 +1,96 @@
+manual:
+  id: maeum-signal-first-use-guide
+  title: "마음신호 교사·학생·교실 TV 통합 사용설명서"
+  language_policy: "learner-facing-ko"
+  primary_audience: "처음 마음신호를 사용하는 담임교사와 학생, 교실 TV 진행자"
+  target_version: "로컬 앱 소스 및 실제 UI 2026-08-22"
+  delivery: "single-page-static-html"
+  entry: "index.html"
+  source_of_truth:
+    - type: live-ui
+      status: confirmed
+      location: "격리된 임시 학급방으로 교사·학생·교실 TV 흐름 실행"
+    - type: source
+      status: confirmed
+      location: "../public/app.js and ../server.js"
+  forbidden_terms:
+    - Playwright
+    - ffmpeg
+    - provisional
+    - TODO
+
+lessons:
+  - id: teacher-first-round
+    title: "교사용: 방 만들기부터 결과 확정까지"
+    status: complete
+    file: index.html
+    source_evidence:
+      - evidence_tier: live_ui
+        source: "assets/screenshots/02-teacher-create.png through 14-teacher-tv-button.png"
+        status: confirmed
+    ui_capture_required: false
+    risky_action: false
+    domain_expert_required: false
+    media:
+      status: captured_and_verified
+      screenshots:
+        - assets/screenshots/01-landing.png
+        - assets/screenshots/02-teacher-create.png
+        - assets/screenshots/03-teacher-dashboard.png
+        - assets/screenshots/06-teacher-setup.png
+        - assets/screenshots/07-teacher-live.png
+        - assets/screenshots/09-teacher-progress.png
+        - assets/screenshots/12-teacher-reveal.png
+        - assets/screenshots/14-teacher-tv-button.png
+    qa:
+      content_status: pass
+      technical_status: pass
+
+  - id: classroom-tv-first-round
+    title: "교실 TV용: 공개 화면 열기부터 최종 결과 쇼까지"
+    status: complete
+    file: index.html
+    source_evidence:
+      - evidence_tier: live_ui
+        source: "assets/screenshots/14-teacher-tv-button.png through 20-tv-winner.png"
+        status: confirmed
+    ui_capture_required: false
+    risky_action: false
+    domain_expert_required: false
+    media:
+      status: captured_and_verified
+      screenshots:
+        - assets/screenshots/14-teacher-tv-button.png
+        - assets/screenshots/15-tv-audio-gate.png
+        - assets/screenshots/16-tv-lobby.png
+        - assets/screenshots/17-tv-voting.png
+        - assets/screenshots/18-tv-sealed.png
+        - assets/screenshots/19-tv-reveal.png
+        - assets/screenshots/20-tv-winner.png
+    qa:
+      content_status: pass
+      technical_status: pass
+
+  - id: student-first-round
+    title: "학생용: 입장부터 개인 결과 확인까지"
+    status: complete
+    file: index.html
+    source_evidence:
+      - evidence_tier: live_ui
+        source: "assets/screenshots/04-student-join.png through 13-student-result.png"
+        status: confirmed
+    ui_capture_required: false
+    risky_action: false
+    domain_expert_required: false
+    media:
+      status: captured_and_verified
+      screenshots:
+        - assets/screenshots/04-student-join.png
+        - assets/screenshots/05-student-lobby.png
+        - assets/screenshots/08-student-vote.png
+        - assets/screenshots/10-student-prediction.png
+        - assets/screenshots/11-student-intel.png
+        - assets/screenshots/13-student-result.png
+    qa:
+      content_status: pass
+      technical_status: pass

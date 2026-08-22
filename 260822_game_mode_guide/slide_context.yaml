@@ -1,0 +1,64 @@
+project:
+  id: 260822_game_mode_guide
+  title: "마음신호: 8가지 투표 게임"
+  format: "HTML + PNG + image-based PPTX"
+  source_fidelity: high
+
+delivery:
+  audience_mode: student_class
+  grade_band: upper_elementary
+  presentation_environment: classroom_projector
+  education_quality: strict
+  aspect_ratio: "16:9"
+  viewport: "1280x720"
+  duration_minutes: 10
+  slide_count: 14
+  tone: "밝고 전략적인 교실 게임"
+
+content_brief:
+  learning_outcome: "학생이 8개 모드의 목표, 선택, 중간 정보, 승리 조건을 구분하고 자기 화면의 단계에 맞게 행동한다."
+  learner_starting_point: "비밀 투표는 알지만 예측, 중간 신호, 팀 추리, 개인 임무가 섞인 모드는 처음이다."
+  likely_misconceptions:
+    - "게임 전용 모드를 실제 학급 결정에 써도 된다고 생각한다."
+    - "교사가 누가 무엇을 골랐는지 본다고 생각한다."
+    - "혼잡·보통·한산을 정확한 득표수로 오해한다."
+    - "점수 규칙이 모든 모드에 있다고 생각한다."
+  must_include:
+    - "8개 모드 전체"
+    - "모드별 목표·선택·중간 정보·재선택·승리·점수·공정성"
+    - "표심전 정보 토큰과 8가지 정보 아이템"
+    - "실제 의사결정과 순수 게임의 경계"
+  must_avoid:
+    - "구현에 없는 점수나 보너스"
+    - "개별 학생의 선택 공개"
+    - "사람을 공격하거나 표를 빼앗는 설명"
+    - "작은 글씨와 긴 교사용 운영 문장"
+  big_question: "오늘 우리의 표는 결정일까, 게임일까?"
+  learning_flow:
+    - "공통 약속"
+    - "8개 모드 지도"
+    - "모드별 규칙"
+    - "표심전 아이템"
+    - "목적에 맞는 모드 선택"
+  learner_actions:
+    - "모드별 세 칸 규칙을 소리 내어 확인한다."
+    - "실제 결정용과 게임 전용을 구분한다."
+    - "자기 화면의 현재 단계에서만 제출한다."
+  success_evidence: "학생이 시작 전 선택, 중간 단계, 점수 또는 결과를 한 문장으로 설명한다."
+  source_fidelity: "현재 앱 구현과 README에만 근거"
+
+visual_system:
+  colors:
+    background: "#F7F4FF"
+    background_secondary: "#EEF9F7"
+    text: "#25223A"
+    text_secondary: "#5F5A75"
+    accent: "#7667E8"
+    accent_secondary: "#25BBA5"
+  assets:
+    - "output/images/hero_classroom.png"
+    - "output/images/app_icon.png"
+    - "output/images/mode_atlas.png"
+    - "output/images/skill_atlas.png"
+
+notes_policy: "화면에는 학생이 지금 알아야 할 규칙만, 예외·운영 팁·전환 멘트는 SPEAKER_NOTES에 둔다."

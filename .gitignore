@@ -1,0 +1,8 @@
+data/rooms.json
+node_modules/
+.env
+.playwright-cli/
+output/
+design-concepts/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+{
+  "name": "maeum-signal-vote-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "교실용 실시간 투표·추리 게임 마음신호",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

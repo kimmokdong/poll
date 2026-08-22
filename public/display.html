@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#153b2f">
+  <meta name="description" content="마음신호 교실 TV 공개 화면">
+  <title>마음신호 · 교실 TV</title>
+  <link rel="icon" href="/assets/app-icon.png">
+  <link rel="stylesheet" href="/display.css">
+  <script src="/display.js" defer></script>
+</head>
+<body>
+  <div class="cosmos" aria-hidden="true">
+    <i class="aurora aurora-a"></i>
+    <i class="aurora aurora-b"></i>
+    <i class="aurora aurora-c"></i>
+    <div class="star-field" id="star-field"></div>
+    <div class="light-grid"></div>
+  </div>
+
+  <main id="display-app" aria-live="polite">
+    <section class="loading-screen">
+      <div class="signal-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p>교실 신호를 연결하고 있습니다</p>
+    </section>
+  </main>
+
+  <div class="display-controls" id="display-controls" aria-label="교실 TV 화면 설정">
+    <button type="button" data-display-action="audio" id="audio-toggle" aria-pressed="false">🔇 BGM 켜기</button>
+    <button type="button" data-display-action="hide-code" id="code-toggle" aria-pressed="false">🙈 방 코드 숨기기</button>
+    <button type="button" data-display-action="fullscreen">⛶ 전체화면</button>
+  </div>
+
+  <section class="audio-gate" id="audio-gate" aria-labelledby="gate-title">
+    <div class="gate-card">
+      <span class="gate-kicker">MAEUM SIGNAL BROADCAST</span>
+      <img src="/assets/app-icon.png" alt="" class="gate-logo">
+      <h1 id="gate-title">교실 방송국을 시작합니다</h1>
+      <p>브라우저 정책상 소리는 한 번 눌러야 시작됩니다.</p>
+      <button class="gate-start" type="button" data-display-action="start-show">🎙️ 전체화면 + 긴장감 BGM 시작</button>
+      <button class="gate-silent" type="button" data-display-action="silent">소리 없이 화면만 보기</button>
+    </div>
+  </section>
+
+  <div class="display-toast" id="display-toast" role="status" aria-live="polite"></div>
+</body>
+</html>

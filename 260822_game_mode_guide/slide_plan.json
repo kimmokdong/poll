@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "title": "마음신호: 8가지 투표 게임",
+    "author": "현승쌤",
+    "audience_mode": "student_class",
+    "grade_band": "upper_elementary",
+    "presentation_environment": "classroom_projector",
+    "education_quality": "strict",
+    "theme_colors": {
+      "bg": "#F7F4FF",
+      "bg_secondary": "#EEF9F7",
+      "text": "#25223A",
+      "text_secondary": "#5F5A75",
+      "accent": "#7667E8",
+      "accent_secondary": "#25BBA5",
+      "card_style_preset": "glass_soft",
+      "icon_preset": "friendly",
+      "font_preset": "friendly",
+      "highlight_style": "friendly",
+      "takeaway_style": "friendly",
+      "motion_preset": "friendly",
+      "image_frame_preset": "soft",
+      "bg_pattern_style": "dots",
+      "decorations": ["corner_accent", "circles"]
+    }
+  },
+  "content_brief": {
+    "learning_outcome": "학생이 8개 모드의 목표, 선택, 중간 정보, 승리 조건을 구분한다.",
+    "learner_starting_point": "기본 비밀 투표 경험은 있으나 게임 모드는 처음이다.",
+    "likely_misconceptions": ["게임 전용 모드를 실제 결정에 사용", "교사가 개별 표를 본다고 오해", "혼잡도를 정확한 표 수로 오해"],
+    "must_include": ["8개 모드", "점수", "공정성 경계", "정보 아이템"],
+    "must_avoid": ["구현에 없는 규칙", "개별 표 공개", "공격형 아이템"],
+    "big_question": "오늘 우리의 표는 결정일까, 게임일까?",
+    "learning_flow": ["약속", "모드 지도", "모드 규칙", "아이템", "선택"],
+    "learner_actions": ["구분하기", "자기 단계 확인하기", "비밀 선택하기"],
+    "success_evidence": "학생이 자기 모드의 선택-중간-결과를 설명한다.",
+    "source_fidelity": "현재 앱 구현과 README에 충실"
+  },
+  "pages": [
+    {
+      "page_type": "slide",
+      "layout": "fullbleed",
+      "education_function": "curiosity_question",
+      "LEARNING_MESSAGE": "마음신호는 비밀 선택과 정보 추리로 즐기는 투표 게임이다.",
+      "TITLE": "마음신호: 8가지 투표 게임",
+      "SUBTITLE": "비밀 선택 · 정보 추리 · 단계 공개",
+      "IMAGE_SRC": "images/hero_classroom.png",
+      "SPEAKER_NOTES": "10초 안내: 오늘은 손들기 대신 모두가 동시에 비밀로 선택합니다. 앱은 대화를 대신하지 않고 선택, 시간, 집계, 공개를 맡습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "split",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "비밀 선택과 공정한 경계가 모든 모드보다 먼저다.",
+      "TITLE": "먼저 지킬 세 가지 약속",
+      "BODY": "동시에 비밀로 선택해요.",
+      "BULLET_ITEMS": [
+        "실제 결정｜역할·표 가중치 없음",
+        "게임｜사람이 아닌 정보로 겨루기"
+      ],
+      "IMAGE_SRC": "images/app_icon.png",
+      "SPEAKER_NOTES": "교사 화면에는 단계별 제출 인원만 보이고 개별 선택은 보이지 않습니다. 학생은 같은 단계 안에서는 다시 제출해 값을 덮어쓸 수 있지만, 교사가 다음 단계로 넘기면 이전 단계 제출은 닫힙니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "split",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "모드는 투표 목적에서 먼저 고른다.",
+      "TITLE": "8개 모드, 목적부터 고르기",
+      "BODY": "공정 투표 → 전략 투표 → 완전 게임",
+      "BULLET_ITEMS": [
+        "정식·결과 쇼·표심전·이동전｜실제 결정에 활용",
+        "소수·정확히 N·연합·비밀 목표｜순수 게임"
+      ],
+      "IMAGE_SRC": "images/mode_atlas.png",
+      "SPEAKER_NOTES": "정식 투표·결과 쇼·표심전은 실제 표가 고정됩니다. 표심 이동전은 토론 뒤에도 모두 1인 1표를 유지하면서 최종 선택을 변경할 수 있습니다. 나머지 네 모드는 표 자체가 전략 자원이므로 활동 시작 전에 반드시 '게임용 투표'라고 선언하세요."
+    },
+    {
+      "page_type": "slide",
+      "layout": "roadmap",
+      "education_function": "thinking_demo",
+      "LEARNING_MESSAGE": "정식 투표는 점수 없이 진짜 의견을 모은다.",
+      "TITLE": "✓ 정식 투표｜진짜 마음 그대로",
+      "ROADMAP_ITEMS": [
+        {"label": "비밀 선택", "desc": "한 곳에 1표"},
+        {"label": "바로 공개", "desc": "재선택 없음"},
+        {"label": "공정한 결과", "desc": "점수 없음"}
+      ],
+      "STYLE_OVERRIDES": {
+        "ROADMAP_ITEMS[0].desc": {"fontSize": "34px"},
+        "ROADMAP_ITEMS[1].desc": {"fontSize": "34px"},
+        "ROADMAP_ITEMS[2].desc": {"fontSize": "34px"}
+      },
+      "SPEAKER_NOTES": "단계는 투표→공개→완료입니다. 공개 방식은 낮은 순위부터, 한 표씩, 한 번에 중 선택할 수 있고 학생 결과 화면은 득표수 전체, 1위만, 숨김 중 고를 수 있습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "timeline",
+      "education_function": "thinking_demo",
+      "LEARNING_MESSAGE": "결과 쇼는 표는 그대로 두고 공개 순서만 바꾼다.",
+      "TITLE": "🎬 결과 쇼｜표는 그대로, 공개는 극적으로",
+      "TIMELINE_ITEMS": [
+        {"title": "선택｜비밀 1표"},
+        {"title": "연출｜순위 · 드럼롤"},
+        {"title": "결과｜표 불변 · 점수 없음"}
+      ],
+      "SPEAKER_NOTES": "단계는 정식 투표와 같은 투표→공개→완료입니다. 낮은 순위부터 공개하면 마지막 단계에 상위 두 선택지가 함께 드러납니다. 결과 연출은 바뀌어도 집계는 바뀌지 않습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "split",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "표심전은 실제 표를 지키면서 반 전체 결과를 예측한다.",
+      "TITLE": "🔮 표심전｜반 전체의 마음 읽기",
+      "BODY": "실제 투표 뒤 1위·2위·격차를 예측해요.",
+      "BULLET_ITEMS": [
+        "중간｜정보 토큰 2개 → 최종 예측 1회",
+        "점수｜1위 3 · 2위 2 · 격차 2 · 완벽 +2 · 실제 표 고정"
+      ],
+      "IMAGE_SRC": "images/skill_atlas.png",
+      "SPEAKER_NOTES": "단계는 투표→1차 예측→정보 상점→최종 예측→공개→완료입니다. 격차 구간은 2표 이하(동률 포함), 3~5표, 6표 이상입니다. 남긴 토큰은 개당 1점이며 올인은 예측 기본점수만 2배로 만들고 남은 토큰 점수는 별도로 더합니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "comparison",
+      "education_function": "peer_discussion",
+      "LEARNING_MESSAGE": "표심 이동전은 토론 전후의 전체 움직임을 예측한다.",
+      "STUDENT_ACTION": "1차와 최종 선택의 차이를 비교한다.",
+      "TITLE": "↝ 표심 이동전｜토론 뒤 무엇이 바뀔까?",
+      "LEFT_TITLE": "1차 선택",
+      "LEFT_ITEMS": ["비밀 1표"],
+      "RIGHT_TITLE": "중간 → 최종",
+      "RIGHT_ITEMS": ["혼잡도 확인 · 이동 예측 → 최종 선택"],
+      "BOTTOM_TAKEAWAY": "3가지 이동 예측 각 +2 · 모두 1표 · 개인 이동 비공개",
+      "SPEAKER_NOTES": "최소 2명부터 시작할 수 있습니다. 단계는 1차 비밀투표→혼잡도 공개와 이동 예측→최종 선택→공개→완료입니다. 교사가 다음 단계로 넘기기 전까지 최종 선택을 다시 제출해 변경할 수 있습니다. 바꾼 인원 구간, 1위 변경 여부, 격차 추세를 각각 맞히면 2점씩 최대 6점입니다. 혼잡은 최다, 한산은 최소, 나머지는 보통이며 모두 같으면 전부 보통입니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "vs_ox",
+      "education_function": "peer_discussion",
+      "LEARNING_MESSAGE": "소수파 생존은 최소 유효표를 채운 가장 작은 한 무리가 이긴다.",
+      "STUDENT_ACTION": "생존과 탈락 조건을 비교한다.",
+      "TITLE": "🚪 소수파 생존｜적당히 적은 문을 찾아라",
+      "O_MARKER": "✓",
+      "O_TITLE": "생존 +3점",
+      "O_ITEMS": ["최소 유효표 이상 중 가장 적은 한 문"],
+      "X_MARKER": "×",
+      "X_TITLE": "탈락",
+      "X_ITEMS": ["최소 미달 또는 너무 많은 문"],
+      "BOTTOM_TAKEAWAY": "중간 신호 뒤 최종 선택 단계에서 변경 가능 · 게임 전용",
+      "STYLE_OVERRIDES": {
+        "O_ITEMS[0].text": {"fontSize": "34px"},
+        "X_ITEMS[0].text": {"fontSize": "34px"}
+      },
+      "SPEAKER_NOTES": "게임 시작은 학생 2명 이상이면 가능합니다. 기본값 3은 시작 최소 인원이 아니라 승리 자격 최소 유효표이며 교사가 1~20으로 설정합니다. 중간 신호 뒤 최종 선택 단계에서, 교사가 다음 단계로 넘기기 전까지 다시 제출해 변경할 수 있습니다. 역할을 켜면 영향가의 표는 2표라서 머릿수가 아니라 유효표로 자격을 판정합니다. 자격 선택지가 없으면 승자도 없고, 최저 유효표 동률이면 선택지 이름 가나다순으로 한 곳만 이깁니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "bullet",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "정확히 N명은 정원과 딱 맞는 모든 방이 성공한다.",
+      "TITLE": "🚀 정확히 N명｜정원을 딱 맞춰라 · 게임 전용",
+      "BULLET_ITEMS": [
+        {"title": "선택", "desc": "정원 방 하나"},
+        {"title": "중간", "desc": "중간 신호 뒤 최종 선택 단계에서 변경 가능"},
+        {"title": "성공", "desc": "정확히 찬 모든 방 +3"}
+      ],
+      "SPEAKER_NOTES": "최소 2명부터 시작할 수 있습니다. 단계는 투표→중간 신호→최종 선택→공개→완료입니다. 교사가 다음 단계로 넘기기 전까지 최종 선택을 다시 제출해 변경할 수 있습니다. 여러 방이 동시에 정원을 정확히 채우면 그 방들은 모두 성공합니다. 정원을 못 맞춘 방이나 다른 곳을 고른 학생에게는 별도 보너스가 없습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "diagram",
+      "education_function": "thinking_demo",
+      "LEARNING_MESSAGE": "정보 연합전은 서로 다른 단서를 합쳐 팀 답을 만든다.",
+      "TITLE": "🧩 정보 연합전｜단서를 모아 전체 결과 추리",
+      "DIAGRAM_SRC": "diagrams/alliance_flow.svg",
+      "DIAGRAM_CAPTION": "순위 위치·정확한 표 수 각 +1 · 전체 순위 완벽 +3 · 게임 전용",
+      "SPEAKER_NOTES": "최소 2명부터 시작할 수 있습니다. 단계는 투표→비밀 단서→팀 추리→공개→완료이며 재투표는 없습니다. 팀 점수는 순위 위치당 1점, 정확한 득표 항목당 1점, 전체 순위 완벽 시 3점을 더해 팀원 모두에게 같습니다. 같은 팀에서 다시 제출하면 마지막 제출이 팀 전체 답을 덮어쓰며, 거짓 단서 옵션은 이 모드에서만 전체 1개를 섞습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "split",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "비밀 목표전은 서로 다른 개인 임무를 숨기고 최종 결과를 만든다.",
+      "TITLE": "🎭 비밀 목표전｜나만의 임무를 숨겨라",
+      "BODY": "개인 비밀 임무 확인 → 한 곳 선택",
+      "BULLET_ITEMS": [
+        "승리｜내 임무 성공 +4점 · 최소 3명 · 순수 게임 전용"
+      ],
+      "BOTTOM_TAKEAWAY": "중간 신호 뒤 최종 선택 단계에서 변경 가능",
+      "IMAGE_SRC": "images/mission_icon.png",
+      "SPEAKER_NOTES": "최소 3명부터 시작할 수 있습니다. 단계는 임무 확인→투표→중간 신호→최종 선택→공개→완료입니다. 교사가 다음 단계로 넘기기 전까지 최종 선택을 다시 제출해 변경할 수 있습니다. 임무는 특정 선택지 1위·2위, 1·2위 2표 이내, 과반 없음, 정확한 표 수, 모든 선택지 2표 이상 중에서 배정됩니다. 역할 옵션은 소수파 생존과 이 모드에서만 사용할 수 있습니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "split",
+      "education_function": "core_concept",
+      "LEARNING_MESSAGE": "표심전 정보 토큰은 확실성과 보너스 사이의 선택이다.",
+      "TITLE": "🎁 표심전 정보 아이템｜2토큰을 쓸까, 남길까?",
+      "BODY": "남은 토큰 = 개당 +1점",
+      "BULLET_ITEMS": [
+        "확인｜저울 · 구간 · 박빙 · 순위",
+        "전략｜수정 · 분산 · 보험 · 올인"
+      ],
+      "IMAGE_SRC": "images/skill_atlas.png",
+      "SPEAKER_NOTES": "저울은 두 선택지 중 더 많은 쪽, 구간은 0~4·5~8·9 이상, 박빙은 2표 이하, 순위는 상위 2개 포함 여부를 알려 줍니다. 세컨드 찬스는 최종 예측 한 번 수정, 분산은 1위 후보 두 개 대신 적중 1.5점, 보험은 예상 1위가 실제 2위면 1점입니다. 올인은 첫 아이템을 쓰기 전에만 고를 수 있고 이후 정보 사용을 막으며, 예측 기본점수를 2배로 만든 뒤 미사용 2토큰 점수도 따로 더합니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "comparison",
+      "education_function": "peer_discussion",
+      "LEARNING_MESSAGE": "오늘의 목적을 먼저 말하면 알맞은 모드를 고를 수 있다.",
+      "STUDENT_ACTION": "오늘의 목적에 맞는 한 칸을 고른다.",
+      "TITLE": "오늘은 어떤 모드를 고를까?",
+      "LEFT_TITLE": "결정이 목적",
+      "LEFT_ITEMS": ["정식 · 쇼 · 표심 · 이동"],
+      "RIGHT_TITLE": "게임이 목적",
+      "RIGHT_ITEMS": ["소수 · N명 · 연합 · 목표"],
+      "BOTTOM_TAKEAWAY": "먼저 목적을 말하고 모드 고르기",
+      "SPEAKER_NOTES": "실제 결정이면 표를 건드리지 않는 앞의 세 모드, 토론 전후 변화를 보려면 이동전, 순수 활동이면 네 가지 완전 게임에서 고릅니다. 자동 진행을 켜면 미제출 학생이 있어도 시간이 끝날 때 다음 단계로 넘어가므로 초보 운영에서는 끄는 편이 안전합니다. 조기 종료를 누르면 그 시점까지 제출된 값으로 즉시 채점합니다."
+    },
+    {
+      "page_type": "slide",
+      "layout": "closing",
+      "education_function": "reflection",
+      "LEARNING_MESSAGE": "마음신호의 재미는 비밀, 공정, 추리에서 나온다.",
+      "STUDENT_ACTION": "자기 화면의 단계와 규칙을 확인하고 시작한다.",
+      "TITLE": "준비됐나요? 이제 마음을 보내요!",
+      "MESSAGE": "비밀 선택 · 공정한 운영 · 즐거운 추리",
+      "BULLET_ITEMS": [
+        "내 선택은 말해도, 숨겨도 좋아요.",
+        "화면의 현재 단계에서만 제출해요."
+      ],
+      "STYLE_OVERRIDES": {
+        "BULLET_ITEMS[0]": {"fontSize": "34px"},
+        "BULLET_ITEMS[1]": {"fontSize": "34px"}
+      },
+      "CTA": "오늘의 모드 START",
+      "SPEAKER_NOTES": "마지막 확인 질문: '오늘 모드는 실제 결정용인가요, 게임 전용인가요?' 학생들이 답하면 방 코드를 보여 주고 시작합니다."
+    }
+  ]
+}
