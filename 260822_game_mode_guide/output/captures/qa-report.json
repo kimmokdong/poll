@@ -1,0 +1,135 @@
+{
+  "html": "C:\\Users\\hyunseung\\Desktop\\2pyo\\260822_game_mode_guide\\output\\index.html",
+  "mode": "presentation",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "contact_sheet": "C:\\Users\\hyunseung\\Desktop\\2pyo\\260822_game_mode_guide\\output\\captures\\contact-sheet.png",
+  "quality_contract": {
+    "contract": "education-v1",
+    "audience_mode": "student_class",
+    "grade_band": "upper_elementary",
+    "presentation_environment": "classroom_projector",
+    "education_quality": "strict",
+    "profile": {
+      "title_min": 54,
+      "body_min": 34,
+      "support_min": 26,
+      "title_lines": 2,
+      "body_blocks": 3,
+      "body_lines": 6
+    },
+    "issues": [
+      {
+        "layer": "lesson",
+        "severity": "warning",
+        "code": "lesson-flow-order",
+        "detail": "student_class 기본 수업 흐름과 역행하는 education_function 순서가 있습니다."
+      }
+    ]
+  },
+  "contract_issues": [
+    {
+      "layer": "lesson",
+      "severity": "warning",
+      "code": "lesson-flow-order",
+      "detail": "student_class 기본 수업 흐름과 역행하는 education_function 순서가 있습니다."
+    }
+  ],
+  "slides": [
+    {
+      "slide": 1,
+      "layout": "fullbleed",
+      "issues": []
+    },
+    {
+      "slide": 2,
+      "layout": "split",
+      "issues": []
+    },
+    {
+      "slide": 3,
+      "layout": "split",
+      "issues": []
+    },
+    {
+      "slide": 4,
+      "layout": "roadmap",
+      "issues": []
+    },
+    {
+      "slide": 5,
+      "layout": "timeline",
+      "issues": []
+    },
+    {
+      "slide": 6,
+      "layout": "split",
+      "issues": []
+    },
+    {
+      "slide": 7,
+      "layout": "comparison",
+      "issues": []
+    },
+    {
+      "slide": 8,
+      "layout": "vs_ox",
+      "issues": []
+    },
+    {
+      "slide": 9,
+      "layout": "bullet",
+      "issues": []
+    },
+    {
+      "slide": 10,
+      "layout": "diagram",
+      "issues": []
+    },
+    {
+      "slide": 11,
+      "layout": "split",
+      "issues": []
+    },
+    {
+      "slide": 12,
+      "layout": "split",
+      "issues": []
+    },
+    {
+      "slide": 13,
+      "layout": "comparison",
+      "issues": []
+    },
+    {
+      "slide": 14,
+      "layout": "closing",
+      "issues": []
+    }
+  ],
+  "summary": {
+    "slides": 14,
+    "errors": 0,
+    "warnings": 1,
+    "layers": {
+      "data": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "visual": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "semantic": {
+        "errors": 0,
+        "warnings": 0
+      },
+      "lesson": {
+        "errors": 0,
+        "warnings": 1
+      }
+    }
+  }
+}
