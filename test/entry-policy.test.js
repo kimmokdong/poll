@@ -48,3 +48,12 @@ test('설명서는 번호 없는 연결선과 8가지 게임 모드 상세 안�
     assert.match(manualHtml, new RegExp(mode));
   }
 });
+
+test('설명서 본문은 큰 글자와 쉬운 단계 표현을 유지한다', () => {
+  assert.match(manualHtml, /body\{[^}]*font-size:16px/s);
+  assert.match(manualHtml, /\.mode-guide-body p\{[^}]*font-size:15px/s);
+  assert.equal((manualHtml.match(/<b>이럴 때 써요:<\/b>/g) || []).length, 8);
+  assert.match(manualHtml, /1\. 이렇게 하세요/);
+  assert.match(manualHtml, /2\. 잘됐는지 확인하세요/);
+  assert.match(manualHtml, /3\. 이것만 조심하세요/);
+});
