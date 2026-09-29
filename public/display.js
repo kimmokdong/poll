@@ -23,19 +23,34 @@ const PHASES = {
   finished: { name: '라운드 완료', kicker: 'FINAL RESULT', hint: '모든 선택이 하나의 결과가 되었습니다.', icon: '🏆' }
 };
 
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 30000;
+const HEARTBEAT_INTERVAL_MS = 25000;
+const HEARTBEAT_TIMEOUT_MS = 10000;
+const ROOM_EXPIRED_CODE = 4004;
+
 const app = document.querySelector('#display-app');
+const announcer = document.querySelector('#display-announcer');
 const audioGate = document.querySelector('#audio-gate');
 const audioToggle = document.querySelector('#audio-toggle');
 const codeToggle = document.querySelector('#code-toggle');
+const codePopup = document.querySelector('#code-popup');
+const codePopupDigits = document.querySelector('#code-popup-digits');
 const toast = document.querySelector('#display-toast');
 const pathParts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
 const queryCode = new URLSearchParams(location.search).get('room');
 const roomCode = String(pathParts[0] === 'display' ? pathParts[1] || queryCode || '' : queryCode || '')
-  .trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
+  .trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 
 let state = null;
 let source = null;
 let reconnectTimer = null;
+let reconnectAttempt = 0;
+let heartbeatTimer = null;
+let heartbeatDeadline = null;
+let lastMessageAt = 0;
+let resyncing = false;
+let stopped = false;
 let clockOffset = 0;
 let toastTimer = null;
 let controlsTimer = null;
@@ -74,6 +89,24 @@ function showToast(message, error = false) {
   toastTimer = setTimeout(() => { toast.className = 'display-toast'; }, 2800);
 }
 
+// 방 코드를 누르면 숫자를 한 칸씩 크게 띄운다. '방 코드 숨기기' 중이어도 누른 사람에게는 실제 코드를 보여 준다.
+function openCodePopup() {
+  const code = state?.room?.code || roomCode;
+  if (!code || !codePopup) return;
+  codePopupDigits.innerHTML = [...code].map((char) => `<span aria-hidden="true">${esc(char)}</span>`).join('');
+  codePopupDigits.setAttribute('aria-label', `방 코드 ${[...code].join(' ')}`);
+  if (!codePopup.open) codePopup.showModal();
+}
+
+function closeCodePopup() {
+  if (codePopup?.open) codePopup.close();
+}
+
+function toggleCodePopup() {
+  if (codePopup?.open) closeCodePopup();
+  else openCodePopup();
+}
+
 function showControls() {
   clearTimeout(controlsTimer);
   document.body.classList.add('controls-visible');
@@ -85,7 +118,7 @@ function roomEntry() {
     <img src="/assets/app-icon.png" alt="" class="gate-logo">
     <h1>교실 방송국 연결</h1>
     <p>교사 화면에 보이는 5자리 방 코드를 입력하세요.</p>
-    <form id="display-room-form"><input name="code" maxlength="5" autocomplete="off" aria-label="방 코드" placeholder="ABCDE" required autofocus><button type="submit">연결하기</button></form>
+    <form id="display-room-form"><input name="code" maxlength="5" inputmode="numeric" autocomplete="off" aria-label="방 코드" placeholder="12345" required autofocus><button type="submit">연결하기</button></form>
   </section>`;
 }
 
@@ -101,7 +134,7 @@ function topbar(round = null) {
     <div class="tv-meta">
       ${mode ? `<span class="mode-pill" style="border-color:${mode.color}55;color:${mode.color}">${mode.icon} ${mode.name}</span>` : ''}
       <span class="connection-pill"><i></i>${online}/${state.players.length}명 연결</span>
-      <span class="tv-room">ROOM <strong class="room-code-value">${esc(visibleCode())}</strong></span>
+      <button type="button" class="tv-room" data-display-action="show-code" aria-haspopup="dialog" title="방 코드 크게 보기 (R)">ROOM <strong class="room-code-value">${esc(visibleCode())}</strong></button>
     </div>
   </header>`;
 }
@@ -194,7 +227,9 @@ function resultBoard(round) {
   const max = Math.max(1, ...results.map((item) => Number(item.count) || 0));
   return `<div class="result-board">${results.map((item, index) => {
     const width = item.count === null ? 100 : Math.max(5, (Number(item.count) || 0) / max * 100);
-    return `<div class="result-card" style="--option-color:${safeColor(item.color)};--delay:${index * .08}s"><span class="result-rank">${item.rank || index + 1}</span><strong class="result-name">${esc(item.label)}</strong><span class="result-bar"><i style="--width:${width}%"></i></span><span class="result-count">${item.count === null ? '승리' : `${item.count}표`}</span></div>`;
+    const rank = item.rank || index + 1;
+    const label = item.tied ? `공동 ${rank}위` : `${rank}위`;
+    return `<div class="result-card" style="--option-color:${safeColor(item.color)};--delay:${index * .08}s"><span class="result-rank" title="${label}"><span aria-hidden="true">${rank}</span><span class="sr-only">${label}</span></span><strong class="result-name">${esc(item.label)}${item.tied ? '<small class="tie-tag" aria-hidden="true">공동</small>' : ''}</strong><span class="result-bar"><i style="--width:${width}%"></i></span><span class="result-count">${item.count === null ? '승리' : `${item.count}표`}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -266,40 +301,145 @@ function receiveState(next) {
     triggerRevealHit();
     soundscape?.effect('victory');
   } else if (phaseChanged) soundscape?.effect('transition');
+  if (phaseChanged || !previousRound && next.round) announcePhase(next.round);
+}
+
+function announcePhase(round) {
+  if (!announcer) return;
+  const text = round ? `${MODES[round.mode]?.name || ''}, ${PHASES[round.phase]?.name || ''} 단계입니다.` : '대기 화면입니다.';
+  announcer.textContent = '';
+  setTimeout(() => { announcer.textContent = text; }, 60);
+}
+
+async function fetchDisplayState() {
+  let response;
+  try {
+    response = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/display-state`, { cache: 'no-store' });
+  } catch {
+    throw Object.assign(new Error('인터넷 연결을 확인해 주세요.'), { status: 0 });
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(payload.error || '방 코드를 확인해 주세요.'), { status: response.status });
+  return payload;
+}
+
+// 방이 없거나 사용 시간이 끝나면 다시 연결하지 않고 안내 화면을 띄운다.
+function stopConnection(message) {
+  stopped = true;
+  clearTimeout(reconnectTimer);
+  stopHeartbeat();
+  const socket = source;
+  source = null;
+  socket?.close();
+  state = null;
+  soundscape?.setMuted(true);
+  app.innerHTML = errorScreen(message);
+  audioGate.classList.add('hidden');
 }
 
 async function loadState() {
+  reconnectTimer = null;
   if (!roomCode) { render(); return; }
+  if (stopped || resyncing) return;
+  resyncing = true;
   try {
-    const response = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/display-state`, { cache: 'no-store' });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || '방 코드를 확인해 주세요.');
+    const payload = await fetchDisplayState();
+    resyncing = false;
     receiveState(payload);
     connect();
   } catch (error) {
-    app.innerHTML = errorScreen(error.message);
-    audioGate.classList.add('hidden');
+    resyncing = false;
+    if (error.status === 404) stopConnection(error.message);
+    else lostConnection();
   }
+}
+
+function stopHeartbeat() {
+  clearInterval(heartbeatTimer);
+  clearTimeout(heartbeatDeadline);
+  heartbeatTimer = null;
+  heartbeatDeadline = null;
 }
 
 function connect() {
   clearTimeout(reconnectTimer);
-  source?.close();
+  reconnectTimer = null;
+  stopHeartbeat();
+  const previous = source;
+  source = null;
+  previous?.close();
+  if (stopped) return;
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(roomCode)}/display-events`);
   source = socket;
+  socket.addEventListener('open', () => {
+    if (source !== socket) return;
+    const recovered = reconnectAttempt > 0;
+    reconnectAttempt = 0;
+    lastMessageAt = Date.now();
+    heartbeatTimer = setInterval(() => probe(socket), HEARTBEAT_INTERVAL_MS);
+    showToast(recovered ? '다시 연결되었습니다.' : '교사 화면과 실시간으로 연결되었습니다.');
+  });
   socket.addEventListener('message', (event) => {
+    if (source !== socket) return;
+    lastMessageAt = Date.now();
     if (event.data === 'pong') return;
     try { receiveState(JSON.parse(event.data)); }
     catch { showToast('새 상태를 읽지 못했습니다.', true); }
   });
-  socket.addEventListener('open', () => showToast('교사 화면과 실시간으로 연결되었습니다.'));
-  socket.addEventListener('close', () => {
-    if (source !== socket || !roomCode) return;
-    showToast('연결을 다시 시도하고 있습니다.', true);
-    reconnectTimer = setTimeout(connect, 1500);
+  socket.addEventListener('close', (event) => {
+    if (source !== socket) return;
+    source = null;
+    stopHeartbeat();
+    if (event.code === ROOM_EXPIRED_CODE) stopConnection('방 사용 시간이 끝났습니다. 교사 화면에서 새 방을 만든 뒤 TV를 다시 열어 주세요.');
+    else lostConnection();
   });
   socket.addEventListener('error', () => socket.close());
+}
+
+// ping을 보내고 제한 시간 안에 아무 메시지도 오지 않으면 끊긴 연결로 보고 다시 연결한다.
+function probe(socket) {
+  if (source !== socket || socket.readyState !== WebSocket.OPEN) return;
+  const sentAt = Date.now();
+  try { socket.send('ping'); } catch { dropSocket(socket); return; }
+  clearTimeout(heartbeatDeadline);
+  heartbeatDeadline = setTimeout(() => {
+    if (source === socket && lastMessageAt < sentAt) dropSocket(socket);
+  }, HEARTBEAT_TIMEOUT_MS);
+}
+
+function dropSocket(socket) {
+  if (source !== socket) return;
+  source = null;
+  stopHeartbeat();
+  try { socket.close(); } catch { /* 이미 닫힌 연결 */ }
+  lostConnection();
+}
+
+function lostConnection() {
+  if (stopped) return;
+  if (!reconnectAttempt) showToast('연결을 다시 시도하고 있습니다.', true);
+  scheduleResync();
+}
+
+// 1.5초에서 시작해 두 배씩 늘리고(최대 30초), 여러 화면이 한꺼번에 몰리지 않도록 흩뜨린다.
+function reconnectDelay() {
+  const ceiling = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** reconnectAttempt);
+  reconnectAttempt += 1;
+  return Math.round(ceiling / 2 + Math.random() * ceiling / 2);
+}
+
+function scheduleResync(delay = reconnectDelay()) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(loadState, delay);
+}
+
+function checkConnection() {
+  if (!roomCode || stopped || resyncing) return;
+  if (source?.readyState === WebSocket.OPEN) { probe(source); return; }
+  if (source?.readyState === WebSocket.CONNECTING) return;
+  reconnectAttempt = 0;
+  scheduleResync(0);
 }
 
 function triggerRevealHit() {
@@ -553,12 +693,18 @@ document.addEventListener('click', async (event) => {
     localStorage.setItem('maeum-display-hide-code', String(codeHidden));
     render();
   } else if (action === 'fullscreen') await toggleFullscreen();
+  else if (action === 'show-code') openCodePopup();
+  else if (action === 'close-code') closeCodePopup();
+});
+
+codePopup?.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-display-action]')) closeCodePopup();
 });
 
 document.addEventListener('submit', (event) => {
   if (event.target.id !== 'display-room-form') return;
   event.preventDefault();
-  const code = String(new FormData(event.target).get('code') || '').trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
+  const code = String(new FormData(event.target).get('code') || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
   if (code.length === 5) location.href = `/display/${code}`;
 });
 
@@ -567,6 +713,7 @@ document.addEventListener('keydown', async (event) => {
   if (event.target.matches('input')) return;
   if (event.key.toLowerCase() === 'm') audioEnabled ? toggleAudio() : await enableAudio();
   if (event.key.toLowerCase() === 'f') await toggleFullscreen();
+  if (event.key.toLowerCase() === 'r' && state) toggleCodePopup();
   if (event.key.toLowerCase() === 'c') {
     codeHidden = !codeHidden;
     localStorage.setItem('maeum-display-hide-code', String(codeHidden));
@@ -575,10 +722,16 @@ document.addEventListener('keydown', async (event) => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && audioEnabled) soundscape?.context?.resume();
+  if (document.hidden) return;
+  if (audioEnabled) soundscape?.context?.resume();
+  checkConnection();
 });
+window.addEventListener('online', checkConnection);
 
-window.addEventListener('beforeunload', () => source?.close());
+window.addEventListener('beforeunload', () => {
+  stopped = true;
+  source?.close();
+});
 setInterval(updateTimer, 250);
 createStars();
 if (!roomCode) audioGate.classList.add('hidden');
