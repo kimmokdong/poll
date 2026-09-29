@@ -8,12 +8,12 @@
   "scripts": {
     "build": "node scripts/build-assets.js",
     "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm test && npm run build && wrangler deploy",
     "start": "npm run dev",
     "test": "node --test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
     "wrangler": "^4.125.0"
