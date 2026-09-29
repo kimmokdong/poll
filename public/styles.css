@@ -120,7 +120,8 @@ h1, h2, h3, p { margin-top: 0; }
 .teacher-invite-guide > span { font-size: 24px; }
 .teacher-invite-guide strong, .teacher-invite-guide small { display: block; }
 .teacher-invite-guide strong { margin-bottom: 3px; font-size: 14px; }
-.teacher-invite-guide small { color: var(--muted); line-height: 1.45; }
+.teacher-invite-guide small { color: var(--muted); line-height: 1.45; word-break: keep-all; }
+.student-entry-button { flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
 .btn {
   display: inline-flex;
   align-items: center;
@@ -173,6 +174,7 @@ h1, h2, h3, p { margin-top: 0; }
 .invite-room-badge { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.62); }
 .invite-room-badge span { color: var(--muted); font-size: 13px; font-weight: 800; }
 .invite-room-badge strong { color: var(--primary-dark); font-size: 20px; letter-spacing: .16em; }
+.room-code-input { text-transform: uppercase; letter-spacing: .16em; font-size: 18px; font-weight: 950; }
 .field { display: grid; gap: 8px; }
 .field label, .field-label { color: #4d4863; font-size: 13px; font-weight: 850; }
 .input, .select, .textarea {
@@ -397,6 +399,8 @@ h1, h2, h3, p { margin-top: 0; }
   .hero { min-height: auto; padding: 27px; border-radius: 24px; }
   .hero h1 { font-size: 42px; }
   .hero-copy { font-size: 15px; }
+  .teacher-invite-guide { flex-wrap: wrap; }
+  .student-entry-button { width: 100%; margin-left: 0; }
   .hero-art { min-height: 330px; }
   .mini-features { grid-template-columns: 1fr 1fr; }
   .mini-feature { padding: 14px; }

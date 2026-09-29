@@ -84,18 +84,18 @@ function header(extra = '') {
 
 function landing() {
   return `<div class="shell">
-    ${header('<span class="status-chip"><i class="online-dot"></i> 교사용 운영 화면</span>')}
+    ${header('<span class="status-chip"><i class="online-dot"></i> 교사·학생 시작 화면</span>')}
     <section class="hero glass">
       <div>
         <p class="eyebrow">선생님을 위한 교실 투표 방송국</p>
         <h1>손들기보다<br><span class="gradient-text">짜릿한 투표</span></h1>
-        <p class="hero-copy">학급방과 투표를 만들고, 교실 TV에서 결과를 한 단계씩 공개하세요. 학생은 방을 만든 뒤 복사한 참여 링크로만 바로 들어옵니다.</p>
+        <p class="hero-copy">교사는 학급방과 투표를 만들고, 학생은 초대 링크를 열거나 선생님에게 받은 5자리 학급 코드로 들어갑니다.</p>
         <div class="button-row">
           <button class="btn btn-primary" data-action="open-teacher-create">새 학급방 만들기 <span>→</span></button>
           <button class="btn btn-ghost" data-action="open-teacher-login">기존 방 관리</button>
           <a class="btn btn-ghost" href="/manual/" target="_blank" rel="noopener">📘 사용설명서</a>
         </div>
-        <div class="teacher-invite-guide"><span>🔗</span><div><strong>학생 참여는 방을 만든 다음</strong><small>교사 화면의 ‘학생 참여 링크 복사’를 눌러 전달하세요.</small></div></div>
+        <div class="teacher-invite-guide"><span>🎒</span><div><strong>학생인가요?</strong><small>선생님에게 받은 5자리 코드를 입력하세요.</small></div><button class="btn btn-pink btn-small student-entry-button" data-action="open-student-code">학급 코드로 들어가기</button></div>
         <div class="mini-features">
           <div class="mini-feature"><span>🙈</span><strong>완전 비밀 선택</strong><small>누가 무엇을 골랐는지 공개하지 않아요.</small></div>
           <div class="mini-feature"><span>🧠</span><strong>8가지 게임</strong><small>정식 투표부터 비밀 목표전까지.</small></div>
@@ -137,6 +137,14 @@ function authScreen(kind) {
           <div class="invite-room-badge"><span>참여할 방</span><strong>${esc(linkedRoom)}</strong></div>
           <div class="field"><label for="student-name">내 이름</label><input class="input" id="student-name" name="name" maxlength="18" autocomplete="name" placeholder="예: 김하늘" required autofocus></div>
           <button class="btn btn-pink" type="submit">입장하기</button>
+        </form>`
+    },
+    'student-code': {
+      eyebrow: '학생 입장', title: '학급 코드로 들어가기', description: '선생님에게 받은 학급 코드와 내 이름을 입력하세요.', form: `
+        <form id="student-join-form" class="form-stack">
+          <div class="field"><label for="student-code">학급 코드</label><input class="input room-code-input" id="student-code" name="code" minlength="5" maxlength="5" pattern="[A-HJ-NP-Za-hj-np-z2-9]{5}" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="예: M7K2P" required autofocus><span class="helper">선생님 화면에 보이는 영문·숫자 5자리입니다.</span></div>
+          <div class="field"><label for="student-code-name">내 이름</label><input class="input" id="student-code-name" name="name" maxlength="18" autocomplete="name" placeholder="예: 김하늘" required></div>
+          <button class="btn btn-pink" type="submit">학급방 들어가기</button>
         </form>`
     }
   };
@@ -220,14 +228,14 @@ function optionRow(option, index, exact) {
 function roomCodeCard() {
   const joinUrl = state.room.joinUrl || location.origin;
   const inviteUrl = `${joinUrl.replace(/\/$/, '')}/?room=${encodeURIComponent(state.room.code)}`;
-  return `<div class="big-code"><small>학급방 코드 · 학생에게는 아래 링크만 공유</small><strong>${esc(state.room.code)}</strong><span>${esc(inviteUrl)}</span><div class="big-code-actions"><button class="btn btn-small join-link-button" data-action="copy-link">🔗 학생 참여 링크 복사</button><button class="btn btn-small btn-tv" data-action="open-display">📺 교실 TV 열기</button></div></div>`;
+  return `<div class="big-code"><small>학급방 코드 · 링크로 보내거나 5자리 코드를 알려 주세요</small><strong>${esc(state.room.code)}</strong><span>${esc(inviteUrl)}</span><div class="big-code-actions"><button class="btn btn-small join-link-button" data-action="copy-link">🔗 학생 참여 링크 복사</button><button class="btn btn-small btn-tv" data-action="open-display">📺 교실 TV 열기</button></div></div>`;
 }
 
 function roster() {
   const online = state.players.filter((player) => player.online).length;
   return `<div class="section-title">참여 학생 <span class="helper">${online}/${state.players.length}명 접속</span></div>
     <div class="roster">${state.players.length ? state.players.map((player) => `
-      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${esc(player.team)}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? '접속 중' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>학생 참여 링크를 공유해 주세요.</div>'}</div>
+      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${esc(player.team)}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? '접속 중' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>참여 링크를 보내거나 학급 코드를 알려 주세요.</div>'}</div>
     <div class="section-title title-with-action"><span>팀 점수</span>${state.players.length ? '<button class="btn btn-ghost btn-small" data-action="reset-scores">점수 초기화</button>' : ''}</div>${teamBoard()}`;
 }
 
@@ -517,6 +525,7 @@ app.addEventListener('click', async (event) => {
     screen = linkedRoom ? 'student' : 'landing'; render();
   } else if (command === 'open-teacher-create') { screen = 'teacher-create'; render(); }
   else if (command === 'open-teacher-login') { screen = 'teacher-login'; render(); }
+  else if (command === 'open-student-code') { screen = 'student-code'; render(); }
   else if (command === 'logout') {
     const studentRoom = session?.role === 'student' ? (state?.room?.code || session.code) : '';
     eventSource?.close(); saveSession(null); state = null;
