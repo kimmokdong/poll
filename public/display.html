@@ -19,7 +19,7 @@
     <div class="light-grid"></div>
   </div>
 
-  <main id="display-app" aria-live="polite">
+  <main id="display-app">
     <section class="loading-screen">
       <div class="signal-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
       <p>교실 신호를 연결하고 있습니다</p>
@@ -43,7 +43,18 @@
     </div>
   </section>
 
+  <dialog class="code-popup" id="code-popup" aria-labelledby="code-popup-title">
+    <div class="code-popup-card">
+      <span class="gate-kicker">ROOM CODE</span>
+      <h2 id="code-popup-title">방 코드</h2>
+      <div class="code-digits" id="code-popup-digits" role="img"></div>
+      <p>화면 아무 곳이나 누르거나 R 키를 다시 누르면 닫혀요.</p>
+      <button type="button" data-display-action="close-code">닫기</button>
+    </div>
+  </dialog>
+
   <div class="display-toast" id="display-toast" role="status" aria-live="polite"></div>
+  <div id="display-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div class="creator-credit" aria-label="만든이 김현승쌤">
     <span>만든이</span><strong>김현승쌤</strong>
   </div>

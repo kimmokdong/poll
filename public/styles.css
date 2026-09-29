@@ -347,7 +347,7 @@ h1, h2, h3, p { margin-top: 0; }
 .result-row { display: grid; grid-template-columns: 38px minmax(80px, 160px) 1fr auto; gap: 11px; align-items: center; padding: 11px; border-radius: 17px; background: rgba(255,255,255,.66); animation: resultIn .45s both; }
 @keyframes resultIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 .rank { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px; color: var(--primary-dark); background: #ece9ff; font-weight: 950; }
-.result-row:first-child .rank { color: #7b5600; background: #ffeca9; }
+.rank.top { color: #7b5600; background: #ffeca9; }
 .result-name { font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar { height: 16px; overflow: hidden; border-radius: 999px; background: #e8e5ef; }
 .bar i { display: block; height: 100%; min-width: 7px; border-radius: inherit; background: var(--option-color); animation: grow .8s cubic-bezier(.22,.8,.26,1) both; transform-origin: left; }
@@ -692,7 +692,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .skill-card:hover { border-color: #245743; }
 .intel-log li { border: 1px solid #8aa18d; border-radius: 5px; color: #245743; background: #e3eadf; }
 .rank { border: 1px solid #245743; border-radius: 4px; color: #fff8e9; background: #245743; }
-.result-row:first-child .rank { color: #17241f; background: #e7b946; }
+.rank.top { color: #17241f; background: #e7b946; }
 .bar { border: 1px solid #17241f; border-radius: 2px; background: #d2c8b6; }
 .bar i { border-radius: 0; }
 .points-pop { border: 2px solid #6f9b87; border-radius: 6px; color: #245743; background: #dce9df; }
@@ -746,3 +746,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .creator-credit span { font-size: 8px; }
   .creator-credit strong { font-size: 10px; }
 }
+
+/* 공동 순위, 다시 연결 중 표시, 다음 라운드 대기 인원 */
+.tie-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border: 1px solid #c7b58f; border-radius: 999px; color: #7b5600; background: #fff4d6; font-size: 11px; font-weight: 850; vertical-align: 2px; }
+.connection-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 13px; border: 1px solid #d9a441; border-radius: 999px; color: #6b4a00; background: #fff1c9; font-size: 13px; font-weight: 850; white-space: nowrap; animation: pulse 1.6s ease-in-out infinite; }
+.metric-note { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { .connection-chip { animation: none; } }

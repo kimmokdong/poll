@@ -38,11 +38,17 @@ test('표 차이 구간을 경계값에 맞게 나눈다', () => {
 });
 
 test('비밀 임무의 성공 여부를 판정한다', () => {
-  const ranking = [{ id: 'red', count: 5 }, { id: 'blue', count: 4 }, { id: 'green', count: 3 }];
   const counts = { red: 5, blue: 4, green: 3 };
-  assert.equal(__test.missionSucceeded({ type: 'chosen_first', optionId: 'red' }, ranking, counts, 12), true);
-  assert.equal(__test.missionSucceeded({ type: 'close_gap' }, ranking, counts, 12), true);
-  assert.equal(__test.missionSucceeded({ type: 'exact_count', optionId: 'green', target: 4 }, ranking, counts, 12), false);
+  assert.equal(__test.missionSucceeded({ type: 'chosen_first', optionId: 'red' }, counts, 12), true);
+  assert.equal(__test.missionSucceeded({ type: 'close_gap' }, counts, 12), true);
+  assert.equal(__test.missionSucceeded({ type: 'exact_count', optionId: 'green', target: 4 }, counts, 12), false);
+});
+
+test('비밀 임무의 1위·2위 만들기는 동점을 공동 순위로 인정한다', () => {
+  const counts = { red: 4, blue: 4, green: 1 };
+  assert.equal(__test.missionSucceeded({ type: 'chosen_first', optionId: 'blue' }, counts, 9), true);
+  assert.equal(__test.missionSucceeded({ type: 'chosen_second', optionId: 'red' }, counts, 9), true);
+  assert.equal(__test.missionSucceeded({ type: 'chosen_second', optionId: 'green' }, counts, 9), false);
 });
 
 test('정원은 정확히 N명 모드에만 남긴다', () => {
@@ -104,7 +110,8 @@ test('소수파 생존과 정확히 N명 모드는 승리한 학생에게만 점
   });
   Object.values(minority.players).forEach((player) => { player.score = 0; });
   __test.scoreRound(minority);
-  assert.equal(minority.currentRound.points.c + minority.currentRound.points.d, 3);
+  // 파랑과 초록이 1표로 동점인 소수파이므로 둘 다 생존한다.
+  assert.deepEqual(minority.currentRound.points, { a: 0, b: 0, c: 3, d: 3 });
 
   const exact = roomFixture();
   exact.currentRound.options[0].capacity = 2;

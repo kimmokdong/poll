@@ -36,10 +36,29 @@ const SKILLS = {
   insurance: { icon: '🛟', name: '보험', text: '예상 1위가 실제 2위면 부분 점수' }
 };
 
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 30000;
+const HEARTBEAT_INTERVAL_MS = 25000;
+const HEARTBEAT_TIMEOUT_MS = 10000;
+// 서버가 이 코드로 연결을 닫으면 입장 정보가 끝난 것이므로 다시 연결하지 않고 입장 화면으로 돌아간다.
+const SESSION_CLOSE_CODES = new Map([
+  [4001, '입장 정보가 만료되었습니다. 다시 입장해 주세요.'],
+  [4004, '방 사용 시간이 끝났습니다. 선생님께 새 참여 링크를 받아 주세요.']
+]);
+
 let session = readSession();
 let state = null;
 let eventSource = null;
 let reconnectTimer = null;
+let reconnectAttempt = 0;
+let heartbeatTimer = null;
+let heartbeatDeadline = null;
+let lastMessageAt = 0;
+let resyncing = false;
+let connection = 'idle';
+let lastViewKey = null;
+let timerNoticeKey = null;
+let loginCode = '';
 let linkedRoom = new URLSearchParams(location.search).get('room')?.trim().toUpperCase().slice(0, 5) || '';
 let screen = linkedRoom ? 'student' : 'landing';
 let draftMode = 'prediction';
@@ -56,6 +75,7 @@ let toastTimer = null;
 const app = document.querySelector('#app');
 const toastElement = document.querySelector('#toast');
 const dialog = document.querySelector('#dialog');
+const announcer = document.querySelector('#announcer');
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); }
@@ -83,7 +103,7 @@ function header(extra = '') {
 }
 
 function landing() {
-  return `<div class="shell">
+  return `<div class="shell" data-key="landing">
     ${header('<span class="status-chip"><i class="online-dot"></i> 교사용 운영 화면</span>')}
     <section class="hero glass">
       <div>
@@ -125,7 +145,7 @@ function authScreen(kind) {
     'teacher-login': {
       eyebrow: '기존 학급방', title: '다시 만나 반가워요', description: '방 코드와 교사 PIN으로 관리 화면을 엽니다.', form: `
         <form id="teacher-login-form" class="form-stack">
-          <div class="field"><label for="login-code">방 코드</label><input class="input" id="login-code" name="code" maxlength="5" autocomplete="off" placeholder="예: M7K2P" required autofocus></div>
+          <div class="field"><label for="login-code">방 코드</label><input class="input" id="login-code" name="code" maxlength="5" inputmode="numeric" autocomplete="off" placeholder="예: 48213" value="${esc(loginCode)}" required autofocus></div>
           <div class="field"><label for="login-pin">교사 PIN</label><input class="input" id="login-pin" name="pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="숫자 4자리" required></div>
           <button class="btn btn-primary" type="submit">관리 화면 열기</button>
         </form>`
@@ -144,7 +164,7 @@ function authScreen(kind) {
   const headerAction = kind === 'student'
     ? '<span class="status-chip"><i class="online-dot"></i> 학생 참여 화면</span>'
     : '<button class="btn btn-ghost btn-small" data-action="home">처음으로</button>';
-  return `<div class="shell">
+  return `<div class="shell" data-key="auth:${kind}">
     ${header(headerAction)}
     <div class="auth-wrap"><section class="auth-card glass">
       <p class="eyebrow">${config.eyebrow}</p><h1>${config.title}</h1><p>${config.description}</p>${config.form}
@@ -158,20 +178,21 @@ function roomHeader() {
   return header(`
     <button class="room-chip" data-action="copy-code" title="방 코드 복사">방 <strong>${esc(state.room.code)}</strong> ⧉</button>
     ${me ? `<span class="score-chip">✨ ${me.score}점</span>` : ''}
+    ${connection === 'reconnecting' ? '<span class="connection-chip" role="status">⟳ 다시 연결 중</span>' : ''}
     <span class="status-chip"><i class="online-dot"></i>${isTeacher ? '교사 화면' : esc(me?.name)}</span>
     <button class="btn btn-ghost btn-small" data-action="logout">나가기</button>`);
 }
 
 function teacherView() {
   const round = state.round;
-  return `<div class="shell">${roomHeader()}${!round || round.phase === 'finished' ? teacherSetup(round) : teacherLive(round)}</div>`;
+  return `<div class="shell" data-key="teacher">${roomHeader()}${!round || round.phase === 'finished' ? teacherSetup(round) : teacherLive(round)}</div>`;
 }
 
 function teacherSetup(round) {
   const selected = MODES[draftMode];
-  return `<div class="dashboard-grid">
+  return `<div class="dashboard-grid" data-key="setup:${round?.id || 'none'}">
     <section class="panel glass setup-panel">
-      ${round ? `<div class="panel-head"><div><span class="phase-badge">방금 끝난 게임</span><h2>${esc(round.title)}</h2><p>${MODES[round.mode].name} 결과가 저장되었습니다.</p></div><button class="btn btn-ghost btn-small" data-action="fullscreen">결과 크게 보기</button></div>${resultList(round.results, round.totalPlayers)}<div class="divider"></div>` : ''}
+      ${round ? `<div class="panel-head"><div><span class="phase-badge">방금 끝난 게임</span><h2>${esc(round.title)}</h2><p>${MODES[round.mode].name} 결과가 저장되었습니다.</p></div><button class="btn btn-ghost btn-small" data-action="fullscreen">결과 크게 보기</button></div>${resultList(round.results)}<div class="divider"></div>` : ''}
       <div class="panel-head setup-head"><div><h2>새 투표 게임</h2><p><strong>${selected.icon} ${selected.name}</strong> · ${selected.summary}<span class="setup-guidance"> 실제 의사결정에는 0~3단계를 권장합니다.</span></p></div><span class="phase-badge">${selected.category}</span></div>
       <div class="mode-grid">${Object.entries(MODES).map(([key, mode]) => `
         <button class="mode-card ${key === draftMode ? 'selected' : ''}" data-action="select-mode" data-mode="${key}" aria-pressed="${key === draftMode}" aria-label="Lv.${mode.level} ${mode.name}. ${mode.summary}" title="${mode.name} · ${mode.summary}">
@@ -187,7 +208,7 @@ function roundForm() {
   const exact = draftMode === 'exact';
   const game = ['minority', 'mission'].includes(draftMode);
   const alliance = draftMode === 'alliance';
-  return `<form id="round-form" class="round-form form-stack setup-form">
+  return `<form id="round-form" class="round-form form-stack setup-form" data-key="setup">
     <div class="two-col">
       <div class="field"><label for="round-title">질문 또는 게임 제목</label><input class="input" id="round-title" name="title" maxlength="60" placeholder="예: 금요일 마지막 활동은?" required></div>
       <div class="field"><label for="timer-seconds">단계별 제한 시간</label><select class="select" id="timer-seconds" name="timerSeconds"><option value="0">시간 제한 없음</option><option value="20">20초</option><option value="30">30초</option><option value="45" selected>45초</option><option value="60">1분</option><option value="120">2분</option></select></div>
@@ -212,7 +233,7 @@ function roundForm() {
 function optionRow(option, index, exact) {
   return `<div class="option-row ${exact ? 'with-capacity' : ''}">
     <input class="input" data-option-index="${index}" data-option-key="label" value="${esc(option.label)}" maxlength="30" aria-label="선택지 ${index + 1}" placeholder="선택지 ${index + 1}" required>
-    ${exact ? `<input class="input" data-option-index="${index}" data-option-key="capacity" type="number" min="1" max="50" value="${option.capacity || index * 2 + 4}" aria-label="정원">` : ''}
+    ${exact ? `<input class="input" data-option-index="${index}" data-option-key="capacity" type="number" inputmode="numeric" min="1" max="50" step="1" value="${option.capacity || index * 2 + 4}" aria-label="정원">` : ''}
     <button class="btn btn-ghost btn-icon" type="button" data-action="remove-option" data-index="${index}" aria-label="선택지 삭제" ${draftOptions.length <= 2 ? 'disabled' : ''}>×</button>
   </div>`;
 }
@@ -239,13 +260,13 @@ function teamBoard() {
 function teacherLive(round) {
   const phase = PHASES[round.phase];
   const progress = phaseProgress(round);
-  return `<div class="live-grid">
+  return `<div class="live-grid" data-key="live:${round.id}">
     <section class="stage glass">
       <div class="stage-head"><div><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p></div>${timerHtml(round)}</div>
       ${phaseTrack(round)}
-      <div class="metric-grid"><div class="metric"><small>참여 인원</small><strong>${round.totalPlayers}</strong>명</div><div class="metric"><small>현재 제출</small><strong>${progress.done}</strong>/${progress.total}</div><div class="metric"><small>진행 단계</small><strong>${round.phaseIndex + 1}</strong>/${round.phases.length}</div></div>
+      <div class="metric-grid"><div class="metric"><small>참여 인원</small><strong>${round.totalPlayers}</strong>명${round.waitingPlayers ? `<span class="metric-note">다음 라운드 대기 ${round.waitingPlayers}명</span>` : ''}</div><div class="metric"><small>현재 제출</small><strong>${progress.done}</strong>/${progress.total}</div><div class="metric"><small>진행 단계</small><strong>${round.phaseIndex + 1}</strong>/${round.phases.length}</div></div>
       <div class="progress" aria-label="제출률"><i style="width:${progress.total ? Math.round(progress.done / progress.total * 100) : 0}%"></i></div>
-      ${teacherStageContent(round)}
+      <div class="stage-body" data-key="${round.id}:${round.phase}">${teacherStageContent(round)}</div>
       <div class="teacher-controls">${teacherControls(round)}</div>
     </section>
     <aside class="panel glass side-panel">${roomCodeCard()}${roster()}</aside>
@@ -279,7 +300,7 @@ function phaseTrack(round) {
 }
 
 function teacherStageContent(round) {
-  if (['reveal', 'finished'].includes(round.phase)) return resultList(round.results, round.totalPlayers);
+  if (['reveal', 'finished'].includes(round.phase)) return resultList(round.results);
   if (round.phase === 'signal' && round.signal) return `<div class="section-title">학생에게 공개된 혼잡도</div>${signalGrid(round)}`;
   if (round.phase === 'mission') return '<div class="private-card"><small>개인 화면에만 표시 중</small><strong>학생마다 서로 다른 비밀 임무와 역할을 확인하고 있습니다.</strong></div>';
   if (round.phase === 'intel') return '<div class="skill-hero" role="img" aria-label="정보 아이템 모음"></div><div class="empty">학생들이 정보 토큰을 쓸지, 아낄지 선택하고 있습니다.</div>';
@@ -297,7 +318,7 @@ function teacherControls(round) {
 
 function studentView() {
   const round = state.round;
-  return `<div class="shell student-shell">${roomHeader()}<section class="student-main glass">${round ? studentRound(round) : studentLobby()}</section></div>`;
+  return `<div class="shell student-shell" data-key="student">${roomHeader()}<section class="student-main glass">${round ? studentRound(round) : studentLobby()}</section></div>`;
 }
 
 function studentLobby() {
@@ -306,10 +327,11 @@ function studentLobby() {
 
 function studentRound(round) {
   const phase = PHASES[round.phase];
-  return `<div class="student-title"><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p>${round.timerEnd ? timerHtml(round) : ''}</div>${studentPhase(round)}`;
+  return `<div class="student-title"><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p>${round.timerEnd ? timerHtml(round) : ''}</div><div class="phase-body" data-key="${round.id}:${round.phase}">${studentPhase(round)}</div>`;
 }
 
 function studentPhase(round) {
+  if (round.participating === false && !['reveal', 'finished'].includes(round.phase)) return spectatorCard();
   if (round.phase === 'mission') return missionCard(round);
   if (['vote', 'revote'].includes(round.phase)) return votePanel(round);
   if (['predict', 'final_predict'].includes(round.phase)) return predictionPanel(round);
@@ -319,6 +341,10 @@ function studentPhase(round) {
   if (round.phase === 'team_guess') return teamGuessPanel(round);
   if (['reveal', 'finished'].includes(round.phase)) return studentResults(round);
   return '<div class="waiting-orbit"></div>';
+}
+
+function spectatorCard() {
+  return `<div class="private-card"><small>이번 라운드는 관전 중</small><strong>게임이 이미 시작되어 다음 라운드부터 함께할 수 있어요.</strong><p>역할 카드와 비밀 임무는 시작할 때 인원에 맞춰 나눠 주기 때문이에요. 결과는 이 화면에서 함께 볼 수 있어요.</p></div><div class="waiting-orbit" aria-hidden="true"></div>`;
 }
 
 function missionCard(round) {
@@ -341,7 +367,7 @@ function predictionPanel(round) {
   const finalLocked = round.phase === 'final_predict' && round.prediction?.final
     && (!round.skillState?.used.includes('second') || round.prediction.secondChanceUsed);
   const optionSelect = (name, selected, label) => `<div class="field"><label for="${name}">${label}</label><select class="select" id="${name}" name="${name}" required><option value="">선택하세요</option>${round.options.map((option) => `<option value="${option.id}" ${selected === option.id ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>`;
-  return `<form id="prediction-form" class="form-stack">
+  return `<form id="prediction-form" class="form-stack" data-key="${round.id}:${round.phase}">
     <div class="two-col">${optionSelect('first', existing?.first, '예상 1위')}${optionSelect('second', existing?.second, '예상 2위')}</div>
     ${split ? `<div class="field"><label>분산 예측 1위 후보 2개</label><div class="two-col">${optionSelect('splitA', existing?.split?.[0], '후보 A')}${optionSelect('splitB', existing?.split?.[1], '후보 B')}</div></div>` : ''}
     <div class="field"><label for="gap">1위와 2위 표 차이</label><select class="select" id="gap" name="gap" required><option value="close" ${existing?.gap === 'close' ? 'selected' : ''}>1~2표 · 박빙</option><option value="middle" ${existing?.gap === 'middle' ? 'selected' : ''}>3~5표 · 보통</option><option value="wide" ${existing?.gap === 'wide' ? 'selected' : ''}>6표 이상 · 큰 차이</option></select></div>
@@ -371,7 +397,7 @@ function signalPanel(round) {
   const clues = round.clues?.length ? `<div class="section-title">내 추가 단서</div>${round.clues.map((clue) => `<div class="clue">${esc(clue)}</div>`).join('')}` : '';
   if (round.mode !== 'migration') return `${signalGrid(round)}${clues}<div class="waiting-orbit"></div><p class="helper" style="text-align:center">교실에서 자유롭게 협상하세요. 한산한 곳으로 모두 몰리면 판세가 바뀔 수 있어요.</p>`;
   const guess = round.movementPrediction;
-  return `${signalGrid(round)}<div class="section-title">최종 표 이동 예측</div><form id="movement-form" class="form-stack">
+  return `${signalGrid(round)}<div class="section-title">최종 표 이동 예측</div><form id="movement-form" class="form-stack" data-key="${round.id}:${round.phase}">
     <div class="field"><label for="switchRange">선택을 바꿀 사람 수</label><select class="select" id="switchRange" name="switchRange"><option value="none">0명</option><option value="few" ${guess?.switchRange === 'few' ? 'selected' : ''}>1~3명</option><option value="many" ${guess?.switchRange === 'many' ? 'selected' : ''}>4명 이상</option></select></div>
     <div class="two-col"><div class="field"><label for="winnerChange">1위가 바뀔까?</label><select class="select" id="winnerChange" name="winnerChange"><option value="false">아니오</option><option value="true" ${guess?.winnerChange ? 'selected' : ''}>예</option></select></div><div class="field"><label for="gapTrend">1·2위 표 차이</label><select class="select" id="gapTrend" name="gapTrend"><option value="narrower">줄어든다</option><option value="same" ${guess?.gapTrend === 'same' ? 'selected' : ''}>비슷하다</option><option value="wider">커진다</option></select></div></div>
     <button class="btn btn-primary" type="submit">이동 예측 제출</button>${guess ? '<div class="submitted">✓ 이동 예측 저장 완료</div>' : ''}
@@ -384,48 +410,168 @@ function cluePanel(round) {
 
 function teamGuessPanel(round) {
   const guess = round.teamGuess;
-  return `<form id="team-guess-form" class="form-stack"><div class="private-card"><small>${esc(state.me.team)} 공동 답안</small><strong>한 명이 제출하면 팀 전체 답안이 바뀝니다.</strong><p>팀원과 충분히 합의한 뒤 제출하세요.</p></div>
-    <div class="section-title">예상 순위</div>${round.options.map((_, index) => `<div class="field"><label for="rank-${index}">${index + 1}위</label><select class="select" id="rank-${index}" name="rank-${index}" required><option value="">선택하세요</option>${round.options.map((option) => `<option value="${option.id}" ${guess?.order?.[index] === option.id ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>`).join('')}
-    <div class="section-title">예상 득표수</div><div class="two-col">${round.options.map((option) => `<div class="field"><label for="count-${option.id}">${esc(option.label)}</label><input class="input" id="count-${option.id}" name="count-${option.id}" type="number" min="0" max="50" value="${guess?.counts?.[option.id] ?? 0}"></div>`).join('')}</div>
-    <button class="btn btn-primary" type="submit">팀 답안 제출</button>${guess ? `<div class="submitted">✓ ${esc(guess.submittedBy)} 학생이 제출한 답안입니다.</div>` : ''}</form>`;
+  const locked = Boolean(guess);
+  const disabled = locked ? 'disabled' : '';
+  const notice = locked
+    ? `<strong>${esc(guess.submittedBy)} 학생이 팀 답안을 확정했어요.</strong><p>확정된 답안은 바꿀 수 없어요. 결과 공개를 기다려 주세요.</p>`
+    : '<strong>한 명이 제출하면 팀 답안이 확정되어 바꿀 수 없어요.</strong><p>팀원과 충분히 합의한 뒤 한 명만 제출하세요.</p>';
+  return `<form id="team-guess-form" class="form-stack" data-key="${round.id}:${round.phase}:${locked ? 'locked' : 'open'}"><div class="private-card"><small>${esc(state.me.team)} 공동 답안</small>${notice}</div>
+    <div class="section-title">예상 순위</div>${round.options.map((_, index) => `<div class="field"><label for="rank-${index}">${index + 1}위</label><select class="select" id="rank-${index}" name="rank-${index}" required ${disabled}><option value="">선택하세요</option>${round.options.map((option) => `<option value="${option.id}" ${guess?.order?.[index] === option.id ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>`).join('')}
+    <div class="section-title">예상 득표수</div><div class="two-col">${round.options.map((option) => `<div class="field"><label for="count-${option.id}">${esc(option.label)}</label><input class="input" id="count-${option.id}" name="count-${option.id}" type="number" inputmode="numeric" min="0" max="50" step="1" value="${guess?.counts?.[option.id] ?? 0}" ${disabled}></div>`).join('')}</div>
+    ${locked ? `<div class="submitted">✓ ${esc(guess.submittedBy)} 학생이 확정한 답안입니다.</div>` : '<button class="btn btn-primary" type="submit">팀 답안 확정하기</button>'}</form>`;
 }
 
-function resultList(results, totalPlayers) {
+// 공동 순위는 같은 숫자와 '공동' 표시로 보여 준다. 1위는 줄 위치가 아니라 실제 순위로 강조한다.
+function resultList(results) {
   if (!results?.length) return '<div class="empty"><div class="waiting-orbit"></div>다음 공개를 기다리고 있어요.</div>';
   const max = Math.max(1, ...results.map((item) => item.count || 0));
-  return `<div class="result-list">${results.map((item, index) => `<div class="result-row" style="animation-delay:${index * .08}s"><span class="rank">${item.rank || index + 1}</span><span class="result-name">${esc(item.label)}</span><span class="bar"><i style="width:${item.count === null ? 100 : Math.max(4, item.count / max * 100)}%;--option-color:${item.color}"></i></span><span class="result-count">${item.count === null ? '승리' : `${item.count}표`}</span></div>`).join('')}</div>`;
+  return `<div class="result-list">${results.map((item, index) => {
+    const rank = item.rank || index + 1;
+    const label = item.tied ? `공동 ${rank}위` : `${rank}위`;
+    return `<div class="result-row" data-key="${esc(item.id)}" style="animation-delay:${index * .08}s"><span class="rank ${rank === 1 ? 'top' : ''}" title="${label}"><span aria-hidden="true">${rank}</span><span class="sr-only">${label}</span></span><span class="result-name">${esc(item.label)}${item.tied ? '<small class="tie-tag" aria-hidden="true">공동</small>' : ''}</span><span class="bar"><i style="width:${item.count === null ? 100 : Math.max(4, item.count / max * 100)}%;--option-color:${item.color}"></i></span><span class="result-count">${item.count === null ? '승리' : `${item.count}표`}</span></div>`;
+  }).join('')}</div>`;
 }
 
 function studentResults(round) {
   const mission = round.mode === 'mission' && round.missionSuccess !== null ? `<div class="points-pop">${round.missionSuccess ? '🎭 비밀 임무 성공!' : '🕵️ 비밀 임무는 다음 기회에'} · ${esc(round.mission)}</div>` : '';
   const points = round.myPoints !== null ? `<div class="points-pop">이번 라운드에서 <strong>+${round.myPoints}점</strong>을 얻었어요.</div>` : '';
-  return `${resultList(round.results, round.totalPlayers)}${mission}${points}${round.phase === 'finished' ? '<div class="section-title" style="text-align:center">다음 게임을 기다려 주세요 ✨</div>' : '<div class="waiting-orbit"></div>'}`;
+  return `${resultList(round.results)}${mission}${points}${round.phase === 'finished' ? '<div class="section-title" style="text-align:center">다음 게임을 기다려 주세요 ✨</div>' : '<div class="waiting-orbit"></div>'}`;
+}
+
+// ---------- 화면 그리기 ----------
+// 상태가 올 때마다 innerHTML을 통째로 바꾸면 입력 중인 값·포커스·열린 선택 상자가 사라진다.
+// 새 HTML과 비교해 바뀐 노드만 고친다. data-key나 id가 다른 노드는 새로 만든다(라운드·단계가 바뀌면 폼 초기화).
+
+function sameNode(current, next) {
+  if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName) return false;
+  if (current.nodeType !== Node.ELEMENT_NODE) return true;
+  return current.id === next.id
+    && current.getAttribute('data-key') === next.getAttribute('data-key')
+    && current.getAttribute('type') === next.getAttribute('type')
+    && current.getAttribute('name') === next.getAttribute('name');
+}
+
+function syncAttributes(current, next) {
+  for (const { name } of [...current.attributes]) if (!next.hasAttribute(name)) current.removeAttribute(name);
+  for (const { name, value } of [...next.attributes]) if (current.getAttribute(name) !== value) current.setAttribute(name, value);
+}
+
+function morphChildren(parent, nextParent) {
+  let current = parent.firstChild;
+  for (const next of [...nextParent.childNodes]) {
+    if (!current) {
+      parent.appendChild(next);
+    } else if (sameNode(current, next)) {
+      morphNode(current, next);
+      current = current.nextSibling;
+    } else {
+      const following = current.nextSibling;
+      parent.replaceChild(next, current);
+      current = following;
+    }
+  }
+  while (current) {
+    const following = current.nextSibling;
+    parent.removeChild(current);
+    current = following;
+  }
+}
+
+function morphNode(current, next) {
+  if (current.nodeType !== Node.ELEMENT_NODE) {
+    if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+    return;
+  }
+  syncAttributes(current, next);
+  morphChildren(current, next);
+}
+
+function patch(container, html) {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  morphChildren(container, template.content);
+}
+
+function viewKey() {
+  if (!state) return `screen:${screen}`;
+  return `${state.role}:${state.round?.id || 'lobby'}:${state.round?.phase || ''}`;
+}
+
+function announce(message) {
+  if (!announcer || !message) return;
+  announcer.textContent = '';
+  setTimeout(() => { announcer.textContent = message; }, 60);
+}
+
+function currentView() {
+  if (state) return state.role === 'teacher' ? teacherView() : studentView();
+  if (screen === 'landing') return landing();
+  if (screen === 'connecting') return connectingScreen();
+  return authScreen(screen);
 }
 
 function render() {
-  document.documentElement.classList.remove('presentation');
-  if (!state) app.innerHTML = screen === 'landing' ? landing() : authScreen(screen);
-  else app.innerHTML = state.role === 'teacher' ? teacherView() : studentView();
+  const key = viewKey();
+  const changed = key !== lastViewKey;
+  if (changed && document.documentElement.classList.contains('presentation')) {
+    // 결과 크게 보기는 다음 라운드나 다른 화면으로 넘어갈 때만 끈다.
+    document.documentElement.classList.remove('presentation');
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => null);
+  }
+  lastViewKey = key;
+  patch(app, currentView());
+  if (changed && state?.round) {
+    const phase = PHASES[state.round.phase];
+    announce(`${MODES[state.round.mode].name}, ${phase.name} 단계입니다. ${phase.hint}`);
+  }
   updateTimer();
 }
+
+function connectingScreen() {
+  return `<div class="shell" data-key="connecting">
+    ${header('<span class="connection-chip" role="status">⟳ 연결 중</span>')}
+    <div class="auth-wrap"><section class="auth-card glass" aria-busy="true">
+      <p class="eyebrow">잠시만 기다려 주세요</p><h1>교실에 다시 연결하고 있어요</h1>
+      <p>인터넷이 잠깐 끊겨도 입장 정보는 이 기기에 남아 있어요. 연결되면 바로 이어서 참여합니다.</p>
+      <div class="waiting-orbit" aria-hidden="true"></div>
+      <button class="btn btn-ghost" data-action="abandon-session">처음 화면으로</button>
+    </section></div>
+  </div>`;
+}
+
+// ---------- 서버 요청 ----------
 
 async function api(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (session?.token) headers.Authorization = `Bearer ${session.token}`;
-  const response = await fetch(path, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(path, { cache: 'no-store', ...options, headers });
+  } catch {
+    throw Object.assign(new Error('인터넷 연결을 확인해 주세요.'), { status: 0 });
+  }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || '요청을 처리하지 못했습니다.');
+  if (!response.ok) throw Object.assign(new Error(payload.error || '요청을 처리하지 못했습니다.'), { status: response.status });
   return payload;
 }
 
+// 401(입장 정보 만료·내보내짐)과 404(방 없음)만 입장 정보를 지운다. 네트워크 오류는 다시 시도한다.
+function sessionGone(error) {
+  return error?.status === 401 || error?.status === 404;
+}
+
 async function action(name, payload = {}) {
-  if (busy) return;
+  if (busy || !session) return false;
   busy = true;
   try {
-    const next = await api(`/api/rooms/${session.code}/action`, { method: 'POST', body: JSON.stringify({ action: name, payload }) });
+    const next = await api(`/api/rooms/${encodeURIComponent(session.code)}/action`, { method: 'POST', body: JSON.stringify({ action: name, payload }) });
     receiveState(next);
-  } catch (error) { showToast(error.message, true); }
-  finally { busy = false; }
+    return true;
+  } catch (error) {
+    if (sessionGone(error)) endSession(error.message);
+    else showToast(error.message, true);
+    return false;
+  } finally { busy = false; }
 }
 
 function receiveState(next) {
@@ -434,37 +580,166 @@ function receiveState(next) {
   render();
 }
 
-function connect() {
+// ---------- 실시간 연결 ----------
+
+function setConnection(next) {
+  if (connection === next) return;
+  connection = next;
+  if (state) render();
+}
+
+function stopHeartbeat() {
+  clearInterval(heartbeatTimer);
+  clearTimeout(heartbeatDeadline);
+  heartbeatTimer = null;
+  heartbeatDeadline = null;
+}
+
+function stopRealtime() {
   clearTimeout(reconnectTimer);
-  eventSource?.close();
+  reconnectTimer = null;
+  stopHeartbeat();
+  const socket = eventSource;
+  eventSource = null;
+  socket?.close();
+}
+
+function connect() {
+  stopRealtime();
   if (!session) return;
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(session.code)}/events?token=${encodeURIComponent(session.token)}`);
   eventSource = socket;
+  socket.addEventListener('open', () => {
+    if (eventSource !== socket) return;
+    reconnectAttempt = 0;
+    lastMessageAt = Date.now();
+    setConnection('online');
+    heartbeatTimer = setInterval(() => probe(socket), HEARTBEAT_INTERVAL_MS);
+  });
   socket.addEventListener('message', (event) => {
+    if (eventSource !== socket) return;
+    lastMessageAt = Date.now();
     if (event.data === 'pong') return;
     try { receiveState(JSON.parse(event.data)); }
     catch { showToast('새 상태를 읽지 못했습니다.', true); }
   });
-  socket.addEventListener('close', () => {
-    if (eventSource !== socket || !session) return;
-    showToast('연결을 다시 시도하고 있어요.');
-    reconnectTimer = setTimeout(connect, 1500);
+  socket.addEventListener('close', (event) => {
+    if (eventSource !== socket) return;
+    eventSource = null;
+    stopHeartbeat();
+    if (!session) return;
+    if (SESSION_CLOSE_CODES.has(event.code)) endSession(SESSION_CLOSE_CODES.get(event.code));
+    else lostConnection();
   });
   socket.addEventListener('error', () => socket.close());
+}
+
+// ping을 보내고 제한 시간 안에 아무 메시지도 오지 않으면 끊긴 연결로 보고 다시 연결한다.
+function probe(socket) {
+  if (eventSource !== socket || socket.readyState !== WebSocket.OPEN) return;
+  const sentAt = Date.now();
+  try { socket.send('ping'); } catch { dropSocket(socket); return; }
+  clearTimeout(heartbeatDeadline);
+  heartbeatDeadline = setTimeout(() => {
+    if (eventSource === socket && lastMessageAt < sentAt) dropSocket(socket);
+  }, HEARTBEAT_TIMEOUT_MS);
+}
+
+function dropSocket(socket) {
+  if (eventSource !== socket) return;
+  eventSource = null;
+  stopHeartbeat();
+  try { socket.close(); } catch { /* 이미 닫힌 연결 */ }
+  lostConnection();
+}
+
+function lostConnection() {
+  if (connection !== 'reconnecting') showToast('연결이 끊겨 다시 연결하고 있어요.');
+  setConnection('reconnecting');
+  scheduleResync();
+}
+
+// 1.5초에서 시작해 두 배씩 늘리고(최대 30초), 여러 기기가 한꺼번에 몰리지 않도록 절반 범위에서 흩뜨린다.
+function reconnectDelay() {
+  const ceiling = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** reconnectAttempt);
+  reconnectAttempt += 1;
+  return Math.round(ceiling / 2 + Math.random() * ceiling / 2);
+}
+
+function scheduleResync(delay = reconnectDelay()) {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(resync, delay);
+}
+
+// 다시 연결하기 전에 입장 정보가 아직 유효한지 확인하고, 끊긴 동안 놓친 상태를 받아 온다.
+async function resync() {
+  reconnectTimer = null;
+  if (!session || resyncing) return;
+  resyncing = true;
+  try {
+    const next = await api(`/api/rooms/${encodeURIComponent(session.code)}/state`);
+    resyncing = false;
+    receiveState(next);
+    connect();
+  } catch (error) {
+    resyncing = false;
+    if (sessionGone(error)) endSession(error.message);
+    else scheduleResync();
+  }
+}
+
+// 휴대폰이 깨어나거나 인터넷이 돌아오면 기다리지 않고 바로 연결을 확인한다.
+// 지금 쓰는 세션만 다시 연결한다. 다른 방 초대 링크로 들어와 입장 화면을 보고 있을 때 남아 있는 예전 세션은 건드리지 않는다.
+function checkConnection() {
+  if (!session || resyncing || (!state && screen !== 'connecting')) return;
+  if (eventSource?.readyState === WebSocket.OPEN) { probe(eventSource); return; }
+  if (eventSource?.readyState === WebSocket.CONNECTING) return;
+  reconnectAttempt = 0;
+  scheduleResync(0);
+}
+
+function endSession(message = '') {
+  const ended = session;
+  stopRealtime();
+  saveSession(null);
+  state = null;
+  connection = 'idle';
+  reconnectAttempt = 0;
+  if (ended?.role === 'student') {
+    linkedRoom = ended.code;
+    history.replaceState({}, '', `/?room=${encodeURIComponent(ended.code)}`);
+    screen = 'student';
+  } else {
+    linkedRoom = '';
+    loginCode = ended?.code || '';
+    history.replaceState({}, '', '/');
+    screen = ended ? 'teacher-login' : 'landing';
+  }
+  render();
+  if (message) showToast(message, true);
 }
 
 async function restore() {
   if (linkedRoom && (session?.role !== 'student' || session.code !== linkedRoom)) return render();
   if (!session?.code || !session?.token) return render();
+  screen = 'connecting';
+  render();
+  resyncing = true;
   try {
-    const next = await api(`/api/rooms/${session.code}/state`);
+    const next = await api(`/api/rooms/${encodeURIComponent(session.code)}/state`);
+    resyncing = false;
     receiveState(next);
     connect();
-  } catch {
-    saveSession(null);
-    state = null;
-    render();
+  } catch (error) {
+    resyncing = false;
+    if (sessionGone(error)) {
+      endSession(error.message);
+    } else {
+      showToast('인터넷 연결이 불안정해요. 잠시 뒤 다시 연결할게요.', true);
+      connection = 'reconnecting';
+      scheduleResync();
+    }
   }
 }
 
@@ -514,12 +789,13 @@ app.addEventListener('click', async (event) => {
   const command = button.dataset.action;
   if (command === 'home') {
     if (state) return;
+    if (screen === 'connecting') { endSession(); return; }
     screen = linkedRoom ? 'student' : 'landing'; render();
-  } else if (command === 'open-teacher-create') { screen = 'teacher-create'; render(); }
+  } else if (command === 'abandon-session') endSession(); else if (command === 'open-teacher-create') { screen = 'teacher-create'; render(); }
   else if (command === 'open-teacher-login') { screen = 'teacher-login'; render(); }
   else if (command === 'logout') {
     const studentRoom = session?.role === 'student' ? (state?.room?.code || session.code) : '';
-    eventSource?.close(); saveSession(null); state = null;
+    stopRealtime(); saveSession(null); state = null; connection = 'idle';
     if (studentRoom) {
       linkedRoom = studentRoom;
       history.replaceState({}, '', `/?room=${encodeURIComponent(studentRoom)}`);
@@ -602,6 +878,7 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'movement-form') {
       await action('movement_predict', { switchRange: data.switchRange, winnerChange: data.winnerChange === 'true', gapTrend: data.gapTrend });
     } else if (form.id === 'team-guess-form') {
+      if (!confirm('팀 답안을 확정할까요? 확정하면 팀원 누구도 바꿀 수 없어요.')) return;
       const round = state.round;
       const order = round.options.map((_, index) => data[`rank-${index}`]);
       const counts = Object.fromEntries(round.options.map((option) => [option.id, Number(data[`count-${option.id}`])]));
@@ -620,9 +897,16 @@ function updateTimer() {
   const remaining = remainingSeconds(state.round);
   element.textContent = formatTime(remaining);
   element.classList.toggle('done', remaining === 0);
+  const noticeKey = `${state.round.id}:${state.round.phase}:${state.round.timerEnd}`;
+  if (remaining === 0 && timerNoticeKey !== noticeKey) {
+    timerNoticeKey = noticeKey;
+    announce('제한 시간이 끝났습니다.');
+  }
 }
 
 setInterval(updateTimer, 500);
+window.addEventListener('online', checkConnection);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkConnection(); });
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) document.documentElement.classList.remove('presentation');
 });

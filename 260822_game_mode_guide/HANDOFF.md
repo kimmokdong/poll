@@ -5,9 +5,11 @@
 - 발표·검토·수정 원본: `output/index.html`
 - 구조화 원본: `slide_plan.json`
 - 최종 배포본: `output/presentation.pptx`
-- 슬라이드별 캡처: `output/captures/slide-001.png` ~ `slide-014.png`
-- 전체 축소 검수판: `output/captures/contact-sheet.png`
+- 슬라이드별 캡처: `output/captures/slide-001.png` ~ `slide-014.png` (저장소에는 올리지 않음)
+- 전체 축소 검수판: `output/captures/contact-sheet.png` (저장소에는 올리지 않음)
 - 4층 QA 보고서: `output/captures/qa-report.json`
+
+슬라이드 캡처 PNG는 다시 만들 수 있는 검수 산출물이라 `.gitignore`로 제외했다. 같은 14장 이미지가 `presentation.pptx` 안에 들어 있고, 처음 올린 원본은 커밋 `cb3a6c2`에 남아 있다. 중복이던 `assets/` 폴더는 `output/images/`·`output/diagrams/`와 같은 파일이라 지웠다.
 
 ## 구성
 

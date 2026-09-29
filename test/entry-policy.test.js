@@ -43,6 +43,17 @@ test('교실 TV도 코드 직접 입력 대신 교사 참여 링크를 안내한
   assert.doesNotMatch(displaySource, /학생 입장 코드/);
 });
 
+test('교실 TV에서 방 코드를 누르거나 R을 누르면 숫자를 크게 띄운다', () => {
+  assert.match(displaySource, /class="tv-room" data-display-action="show-code"/);
+  assert.match(displayHtml, /<dialog class="code-popup" id="code-popup"/);
+  assert.match(displaySource, /event\.key\.toLowerCase\(\) === 'r'/);
+});
+
+test('방 코드 입력칸은 숫자 자판을 띄운다', () => {
+  assert.match(appSource, /id="login-code" name="code" maxlength="5" inputmode="numeric"/);
+  assert.match(displaySource, /name="code" maxlength="5" inputmode="numeric"/);
+});
+
 test('모든 공개 화면에 만든이 김현승쌤 표기를 유지한다', () => {
   for (const source of [indexHtml, displayHtml, manualHtml]) {
     assert.match(source, /aria-label="만든이 김현승쌤"/);
