@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 
 const MAX_HISTORY = 20;
 const MAX_PLAYERS = 50;
+const PRESENCE_GRACE_MS = 30_000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const GAME_MODES = new Set(['minority', 'exact', 'migration', 'alliance', 'mission']);
 const ROLE_MODES = new Set(['minority', 'mission']);
@@ -95,6 +96,23 @@ function joinRoom(room, input) {
   return player;
 }
 
+function activePlayerIds(room, onlineTokens = new Set(), now = Date.now()) {
+  return Object.values(room.players)
+    .filter((player) => onlineTokens.has(player.token)
+      || (Number.isFinite(player.disconnectedAt) && now - player.disconnectedAt < PRESENCE_GRACE_MS))
+    .map((player) => player.id);
+}
+
+function roundParticipantIds(room) {
+  const snapshot = room.currentRound?.participantIds;
+  return Array.isArray(snapshot) ? snapshot.filter((playerId) => room.players[playerId]) : Object.keys(room.players);
+}
+
+function activeRoundPlayerIds(room, onlineTokens = new Set(), now = Date.now()) {
+  const active = new Set(activePlayerIds(room, onlineTokens, now));
+  return roundParticipantIds(room).filter((playerId) => active.has(playerId));
+}
+
 function assignTeam(room) {
   const names = ['별빛팀', '구름팀', '새싹팀', '파도팀'];
   const counts = Object.values(room.players).reduce((acc, player) => {
@@ -130,10 +148,10 @@ function defaultOptions(inputOptions, mode) {
   return options;
 }
 
-function createRound(room, input) {
+function createRound(room, input, participatingPlayerIds = Object.keys(room.players)) {
   const mode = MODE_PHASES[input.mode] ? input.mode : 'official';
   const options = defaultOptions(input.options, mode);
-  const playerIds = Object.keys(room.players);
+  const playerIds = [...new Set(participatingPlayerIds)].filter((playerId) => room.players[playerId]);
   if (GAME_MODES.has(mode) && playerIds.length < 2) throw clientError('게임 모드는 학생이 2명 이상 입장한 뒤 시작할 수 있습니다.');
   if (mode === 'mission' && playerIds.length < 3) throw clientError('비밀 목표전은 학생이 3명 이상일 때 시작할 수 있습니다.');
   const round = {
@@ -144,6 +162,7 @@ function createRound(room, input) {
     phase: MODE_PHASES[mode][0],
     phaseIndex: 0,
     startedAt: Date.now(),
+    participantIds: playerIds,
     timerEnd: null,
     timerExpired: false,
     config: {
@@ -168,6 +187,7 @@ function createRound(room, input) {
     signal: null,
     reveal: { step: 0, totalSteps: 0, order: [], tallyOrder: [] },
     points: {},
+    pointBreakdowns: {},
     scored: false
   };
   for (const playerId of playerIds) {
@@ -262,7 +282,7 @@ function generateClues(room) {
     trueClues.push(`${a.label}과(와) ${b.label}의 차이는 ${diff <= 2 ? '2표 이하' : '3표 이상'}이다.`);
   }
   const deck = shuffled([...new Set(trueClues)]);
-  const players = shuffled(Object.keys(room.players));
+  const players = shuffled(roundParticipantIds(room));
   players.forEach((playerId, index) => { round.clues[playerId] = [deck[index % deck.length]]; });
   if (round.config.roles) {
     players.filter((playerId) => round.roles[playerId] === 'analyst').forEach((playerId, index) => {
@@ -326,7 +346,14 @@ function submitVote(room, player, payload) {
   const round = requireRound(room);
   const optionId = cleanText(payload.optionId, 30);
   if (!round.options.some((option) => option.id === optionId)) throw clientError('선택지를 다시 골라 주세요.');
-  if (round.phase === 'vote') round.votes.first[player.id] = optionId;
+  if (round.phase === 'vote') {
+    const existing = round.votes.first[player.id];
+    if (existing) {
+      if (existing === optionId) return;
+      throw clientError('첫 비밀투표는 이미 확정되었습니다. 선택을 바꾸는 단계에서는 다시 고를 수 있어요.');
+    }
+    round.votes.first[player.id] = optionId;
+  }
   else if (round.phase === 'revote') {
     if (!roleCanRevote(round, player.id)) throw clientError('이번 역할은 1차 선택을 유지해야 합니다.');
     round.votes.final[player.id] = optionId;
@@ -444,58 +471,72 @@ function scoreRound(room) {
   const ranking = orderedResults(round, counts);
   const firstRanking = orderedResults(round, firstCounts);
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
-  const points = Object.fromEntries(Object.keys(room.players).map((playerId) => [playerId, 0]));
+  const playerIds = roundParticipantIds(room);
+  const points = Object.fromEntries(playerIds.map((playerId) => [playerId, 0]));
+  const pointBreakdowns = Object.fromEntries(playerIds.map((playerId) => [playerId, []]));
+  const addPoints = (playerId, label, value) => {
+    if (!value || !Object.hasOwn(points, playerId)) return;
+    points[playerId] += value;
+    pointBreakdowns[playerId].push({ label, points: value });
+  };
 
   if (round.mode === 'prediction') {
-    for (const playerId of Object.keys(points)) {
+    for (const playerId of playerIds) {
       const skill = round.skills[playerId] || { tokens: 0, used: [] };
       const prediction = round.predictions[playerId]?.final || round.predictions[playerId]?.initial;
       if (!prediction) continue;
       let base = 0;
       const splitActive = skill.used.includes('split') && prediction.split?.length;
-      if (splitActive ? prediction.split.includes(ranking[0]?.id) : prediction.first === ranking[0]?.id) base += splitActive ? 1.5 : 3;
-      if (prediction.second === ranking[1]?.id) base += 2;
-      if (prediction.gap === gapBucket(ranking[0], ranking[1])) base += 2;
-      if (prediction.first === ranking[0]?.id && prediction.second === ranking[1]?.id && prediction.gap === gapBucket(ranking[0], ranking[1])) base += 2;
-      if (skill.used.includes('insurance') && prediction.first === ranking[1]?.id) base += 1;
-      points[playerId] += (skill.allIn ? base * 2 : base) + skill.tokens;
+      const addPrediction = (label, value) => { base += value; addPoints(playerId, label, value); };
+      if (splitActive ? prediction.split.includes(ranking[0]?.id) : prediction.first === ranking[0]?.id) addPrediction(splitActive ? '분산 예측 1위 후보 적중' : '1위 예측 적중', splitActive ? 1.5 : 3);
+      if (prediction.second === ranking[1]?.id) addPrediction('2위 예측 적중', 2);
+      if (prediction.gap === gapBucket(ranking[0], ranking[1])) addPrediction('1·2위 표 차이 적중', 2);
+      if (prediction.first === ranking[0]?.id && prediction.second === ranking[1]?.id && prediction.gap === gapBucket(ranking[0], ranking[1])) addPrediction('완벽 예측 보너스', 2);
+      if (skill.used.includes('insurance') && prediction.first === ranking[1]?.id) addPrediction('보험 적중', 1);
+      if (skill.allIn && base) addPoints(playerId, '올인 2배 보너스', base);
+      addPoints(playerId, '남은 정보 토큰', skill.tokens);
     }
   } else if (round.mode === 'minority') {
     const qualified = ranking.filter((option) => option.count >= round.config.minorityMinimum).sort((a, b) => a.count - b.count);
     const winnerId = qualified[0]?.id;
-    for (const playerId of Object.keys(points)) if ((round.votes.final[playerId] || round.votes.first[playerId]) === winnerId) points[playerId] += 3;
+    for (const playerId of playerIds) if ((round.votes.final[playerId] || round.votes.first[playerId]) === winnerId) addPoints(playerId, '소수파 생존 성공', 3);
   } else if (round.mode === 'exact') {
     const successful = new Set(round.options.filter((option) => option.capacity === counts[option.id]).map((option) => option.id));
-    for (const playerId of Object.keys(points)) if (successful.has(round.votes.final[playerId] || round.votes.first[playerId])) points[playerId] += 3;
+    for (const playerId of playerIds) if (successful.has(round.votes.final[playerId] || round.votes.first[playerId])) addPoints(playerId, '선택지 정원 정확히 달성', 3);
   } else if (round.mode === 'migration') {
-    const switched = Object.keys(points).filter((playerId) => round.votes.first[playerId] && round.votes.final[playerId] && round.votes.first[playerId] !== round.votes.final[playerId]).length;
+    const switched = playerIds.filter((playerId) => round.votes.first[playerId] && round.votes.final[playerId] && round.votes.first[playerId] !== round.votes.final[playerId]).length;
     const actualRange = switched === 0 ? 'none' : switched <= 3 ? 'few' : 'many';
     const winnerChanged = firstRanking[0]?.id !== ranking[0]?.id;
     const oldGap = Math.abs((firstRanking[0]?.count || 0) - (firstRanking[1]?.count || 0));
     const newGap = Math.abs((ranking[0]?.count || 0) - (ranking[1]?.count || 0));
     const trend = newGap === oldGap ? 'same' : newGap < oldGap ? 'narrower' : 'wider';
-    for (const playerId of Object.keys(points)) {
+    for (const playerId of playerIds) {
       const guess = round.movementPredictions[playerId];
       if (!guess) continue;
-      if (guess.switchRange === actualRange) points[playerId] += 2;
-      if (guess.winnerChange === winnerChanged) points[playerId] += 2;
-      if (guess.gapTrend === trend) points[playerId] += 2;
+      if (guess.switchRange === actualRange) addPoints(playerId, '선택을 바꾼 인원 예측 적중', 2);
+      if (guess.winnerChange === winnerChanged) addPoints(playerId, '1위 변경 예측 적중', 2);
+      if (guess.gapTrend === trend) addPoints(playerId, '표 차이 변화 예측 적중', 2);
     }
   } else if (round.mode === 'alliance') {
     for (const [team, guess] of Object.entries(round.teamGuesses)) {
-      let teamPoints = guess.order.reduce((sum, optionId, index) => sum + (ranking[index]?.id === optionId ? 1 : 0), 0);
-      teamPoints += Object.entries(guess.counts).reduce((sum, [optionId, value]) => sum + (counts[optionId] === value ? 1 : 0), 0);
-      if (guess.order.every((optionId, index) => ranking[index]?.id === optionId)) teamPoints += 3;
-      Object.values(room.players).filter((player) => player.team === team).forEach((player) => { points[player.id] += teamPoints; });
+      const rankHits = guess.order.reduce((sum, optionId, index) => sum + (ranking[index]?.id === optionId ? 1 : 0), 0);
+      const countHits = Object.entries(guess.counts).reduce((sum, [optionId, value]) => sum + (counts[optionId] === value ? 1 : 0), 0);
+      const perfectOrder = guess.order.every((optionId, index) => ranking[index]?.id === optionId);
+      playerIds.filter((playerId) => room.players[playerId]?.team === team).forEach((playerId) => {
+        addPoints(playerId, `순위 ${rankHits}개 적중`, rankHits);
+        addPoints(playerId, `득표수 ${countHits}개 적중`, countHits);
+        if (perfectOrder) addPoints(playerId, '전체 순위 완벽 적중 보너스', 3);
+      });
     }
   } else if (round.mode === 'mission') {
-    for (const playerId of Object.keys(points)) if (missionSucceeded(round.missions[playerId], ranking, counts, total)) points[playerId] += 4;
+    for (const playerId of playerIds) if (missionSucceeded(round.missions[playerId], ranking, counts, total)) addPoints(playerId, '비밀 임무 성공', 4);
   }
 
   for (const [playerId, score] of Object.entries(points)) {
     if (room.players[playerId]) room.players[playerId].score += score;
   }
   round.points = points;
+  round.pointBreakdowns = pointBreakdowns;
   round.scored = true;
 }
 
@@ -566,20 +607,48 @@ function publicResults(room, role) {
   return all.filter((item) => visible.has(item.id));
 }
 
-function submissionCounts(round) {
+function submissionCounts(room, playerIds = roundParticipantIds(room)) {
+  const round = room.currentRound;
   if (!round) return {};
+  const teams = new Set(playerIds.map((playerId) => room.players[playerId]?.team).filter(Boolean));
   return {
-    vote: Object.keys(round.votes.first).length,
-    revote: Object.keys(round.confirmations || {}).length,
-    prediction: Object.values(round.predictions).filter((item) => item.initial).length,
-    finalPrediction: Object.values(round.predictions).filter((item) => item.final).length,
-    movementPrediction: Object.keys(round.movementPredictions).length,
-    teamGuess: Object.keys(round.teamGuesses).length
+    vote: playerIds.filter((playerId) => round.votes.first[playerId]).length,
+    revote: playerIds.filter((playerId) => round.confirmations?.[playerId]).length,
+    prediction: playerIds.filter((playerId) => round.predictions[playerId]?.initial).length,
+    finalPrediction: playerIds.filter((playerId) => round.predictions[playerId]?.final).length,
+    movementPrediction: playerIds.filter((playerId) => round.movementPredictions[playerId]).length,
+    teamGuess: [...teams].filter((team) => round.teamGuesses[team]).length
   };
+}
+
+function canChangeFinalPrediction(round, playerId) {
+  const prediction = round.predictions[playerId];
+  return Boolean(prediction?.final
+    && round.skills[playerId]?.used.includes('second')
+    && !prediction.secondChanceUsed);
+}
+
+function maybeAdvanceCompletedPhase(room, onlineTokens = new Set(), now = Date.now()) {
+  const round = room.currentRound;
+  if (!round?.timerEnd || ['reveal', 'finished'].includes(round.phase)) return false;
+  const playerIds = activeRoundPlayerIds(room, onlineTokens, now);
+  if (!playerIds.length) return false;
+
+  const completed = round.phase === 'vote'
+    ? playerIds.every((playerId) => round.votes.first[playerId])
+    : round.phase === 'final_predict'
+      ? playerIds.every((playerId) => round.predictions[playerId]?.final)
+        && playerIds.every((playerId) => !canChangeFinalPrediction(round, playerId))
+      : false;
+  if (!completed) return false;
+  advanceRound(room);
+  return true;
 }
 
 function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
   const round = room.currentRound;
+  const currentPlayerIds = round ? activeRoundPlayerIds(room, onlineTokens) : [];
+  const currentPlayerSet = new Set(currentPlayerIds);
   const teamScores = Object.values(room.players).reduce((acc, player) => {
     acc[player.team] = (acc[player.team] || 0) + player.score;
     return acc;
@@ -593,6 +662,7 @@ function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
       name: player.name,
       team: player.team,
       online: onlineTokens.has(player.token),
+      roundActive: !round || currentPlayerSet.has(player.id),
       score: auth.role === 'teacher' ? null : player.id === auth.player?.id ? player.score : null
     })),
     teamScores,
@@ -603,7 +673,9 @@ function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
   if (!round) return state;
   const playerId = auth.player?.id;
   const myVote = playerId ? (round.votes.final[playerId] || round.votes.first[playerId] || null) : null;
-  const totalPlayers = Object.keys(room.players).length;
+  const participantIds = roundParticipantIds(room);
+  const totalPlayers = currentPlayerIds.length;
+  const totalTeams = new Set(currentPlayerIds.map((id) => room.players[id]?.team).filter(Boolean)).size;
   state.round = {
     id: round.id,
     mode: round.mode,
@@ -615,12 +687,14 @@ function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
     timerEnd: round.timerEnd,
     timerExpired: Boolean(round.timerExpired),
     config: round.config,
-    submissions: submissionCounts(round),
+    submissions: submissionCounts(room, currentPlayerIds),
     totalPlayers,
+    totalTeams,
     signal: ['signal', 'revote', 'reveal', 'finished'].includes(round.phase) ? round.signal : null,
     results: publicResults(room, auth.role),
     revealStep: round.reveal.step,
     revealTotal: round.reveal.totalSteps,
+    participating: auth.role !== 'student' || participantIds.includes(playerId),
     myVote,
     canRevote: playerId ? roleCanRevote(round, playerId) : false,
     prediction: playerId ? round.predictions[playerId] || null : null,
@@ -631,6 +705,7 @@ function clientState(room, auth, onlineTokens = new Set(), joinUrl = null) {
     missionSuccess: playerId && round.scored ? missionSucceeded(round.missions[playerId], orderedResults(round, countVotes(room)), countVotes(room), Object.values(countVotes(room)).reduce((a, b) => a + b, 0)) : null,
     roleCard: playerId ? roleText(round.roles[playerId]) : null,
     myPoints: playerId && round.scored ? round.points[playerId] || 0 : null,
+    pointBreakdown: playerId && round.scored ? round.pointBreakdowns?.[playerId] || [] : null,
     teamGuess: playerId ? round.teamGuesses[auth.player.team] || null : null
   };
   return state;
@@ -674,8 +749,8 @@ function displayState(room, onlineTokens = new Set(), joinUrl = null) {
   };
 }
 
-function teacherAction(room, action, payload) {
-  if (action === 'create_round') return createRound(room, payload);
+function teacherAction(room, action, payload, context = {}) {
+  if (action === 'create_round') return createRound(room, payload, context.participantIds);
   if (action === 'advance') return advanceRound(room);
   if (action === 'reveal_next') revealNext(room);
   else if (action === 'finish_round') finishRound(room);
@@ -695,6 +770,10 @@ function teacherAction(room, action, payload) {
 }
 
 function studentAction(room, player, action, payload) {
+  const round = requireRound(room);
+  if (Array.isArray(round.participantIds) && !round.participantIds.includes(player.id)) {
+    throw clientError('이번 라운드는 이미 시작되어 관전 중입니다. 다음 라운드부터 참여할 수 있어요.');
+  }
   if (action === 'vote') submitVote(room, player, payload);
   else if (action === 'predict') submitPrediction(room, player, payload);
   else if (action === 'movement_predict') submitMovementPrediction(room, player, payload);
@@ -727,6 +806,9 @@ const __test = {
   publicResults,
   publicDisplayOutcome,
   displayState,
+  activePlayerIds,
+  activeRoundPlayerIds,
+  maybeAdvanceCompletedPhase,
   revealNext,
   scoreRound,
   MODE_PHASES
@@ -734,15 +816,20 @@ const __test = {
 
 export {
   MODE_PHASES,
+  PRESENCE_GRACE_MS,
+  activePlayerIds,
+  activeRoundPlayerIds,
   advanceRound,
   authenticate,
   authError,
   clientError,
   clientState,
   createRoom,
+  createRound,
   displayState,
   id,
   joinRoom,
+  maybeAdvanceCompletedPhase,
   pinHash,
   roomCode,
   secureEqual,

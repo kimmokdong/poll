@@ -1,0 +1,59 @@
+flowchart TB
+  subgraph Live[사용할 때: 화면에서 저장소까지]
+    direction LR
+    subgraph People[왼쪽 · 사용자와 화면]
+      direction TB
+      T["교사 · 웹브라우저<br/>방 생성 / 진행 제어"]
+      S["학생 · 웹브라우저<br/>투표 / 예측 / 개인 점수"]
+      V["교실 TV · 웹브라우저<br/>진행 현황 / 결과 / BGM"]
+      T ~~~ S ~~~ V
+    end
+    subgraph Front[가운데 · 프론트엔드]
+      direction TB
+      App["public/index.html + app.js<br/>HTML·CSS·JavaScript<br/>교사·학생 화면 함수"]
+      TvApp["public/display.html + display.js<br/>HTML·CSS·Web Audio<br/>TV 화면과 소리"]
+      State["state + formDrafts<br/>객체·Map / localStorage<br/>확정 상태와 초안 분리"]
+      Network["api / action / connect<br/>Fetch + WebSocket<br/>JSON 요청·상태 수신"]
+    end
+    subgraph Back[오른쪽 · 백엔드와 데이터]
+      direction TB
+      W["src/worker.js · Worker<br/>fetch / api / roomStub<br/>요청을 방별 서버로 전달"]
+      R["Room · Durable Object<br/>authenticate / persist / broadcast<br/>권한 검사·저장·실시간 전송"]
+      G["src/game.js · JavaScript<br/>studentAction / scoreRound<br/>게임 규칙과 점수 계산"]
+      D[("DO Storage · SQLite 기반<br/>키 room → 방 객체<br/>학생·투표·점수 보관")]
+    end
+    People -->|화면 조작·선택| Front
+    App <-->|화면 상태·입력 초안| State
+    App <-->|요청·개인 상태| Network
+    TvApp <-->|공개 상태 구독| Network
+    Front <-->|HTTPS JSON<br/>WSS 상태| Back
+    W <-->|ROOMS 바인딩·방 코드| R
+    R <-->|검증·객체 변경| G
+    R <-->|get / put| D
+  end
+  subgraph Delivery[아래쪽 · 개발하고 전달할 때]
+    direction LR
+    PC["개발자 PC · Node.js<br/>public / manual / src 수정"]
+    Build["npm run build · Node.js<br/>build-assets.js<br/>정적 파일을 .dist로 복사"]
+    Auth["Cloudflare 계정 · Wrangler 인증<br/>배포 권한 확인<br/>앱 사용자 로그인과 별개"]
+    CLI["Wrangler · 배포 도구<br/>Worker + .dist 업로드"]
+    Host["Cloudflare Workers + Assets<br/>서버 코드 실행·정적 CDN<br/>workers.dev 서비스 주소"]
+    GitNote["GitHub · README의 연결 안내<br/>현재 폴더에 .git 없음<br/>자동 배포 연결 확인 필요"]
+    PC -->|npm run build 실행| Build
+    Build -->|.dist 자산| CLI
+    PC -->|src 서버 코드·wrangler 설정| CLI
+    Auth -->|배포 인증| CLI
+    CLI -->|업로드·배포| Host
+  end
+  %% 보이지 않는 연결은 운영 영역 위 / 배포 영역 아래의 읽기 순서만 정합니다.
+  Live ~~~ Delivery
+  classDef front fill:#e7f1ff,stroke:#3971b8,color:#15385c;
+  classDef back fill:#e7f4e9,stroke:#39844d,color:#194c2a;
+  classDef store fill:#fff0da,stroke:#bd7823,color:#704511;
+  classDef external fill:#f0e7ff,stroke:#8355b4,color:#4f3271;
+  classDef ops fill:#eef0f3,stroke:#777f8c,color:#303943;
+  class T,S,V,App,TvApp,Network front;
+  class W,R,G back;
+  class State,D store;
+  class Auth external;
+  class PC,Build,CLI,Host,GitNote ops;

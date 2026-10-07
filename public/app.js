@@ -11,6 +11,17 @@ const MODES = {
   mission: { level: '4', name: '비밀 목표전', icon: '🎭', summary: '나만의 승리 조건을 숨겨라', category: '완전 게임' }
 };
 
+const MODE_GUIDES = {
+  official: { goal: '원하는 선택지 하나를 비밀로 골라 반의 결정을 확인합니다.', score: '점수 경쟁 없음 · 실제 의사결정 결과만 확인' },
+  show: { goal: '원하는 선택지 하나를 고르고, 결과를 방송처럼 극적으로 공개합니다.', score: '점수 경쟁 없음 · 실제 의사결정 결과만 확인' },
+  prediction: { goal: '내 취향과 별개로 반 전체의 최종 1위·2위와 표 차이를 맞힙니다.', score: '1위 3점 · 2위 2점 · 표 차이 2점 · 완벽 예측 +2점 · 남은 토큰 각 1점' },
+  migration: { goal: '토론 전후에 몇 명이 움직이고 판세가 어떻게 바뀔지 맞힙니다.', score: '이동 인원·1위 변경·표 차이 변화 적중 시 각각 2점 · 최대 6점' },
+  minority: { goal: (round) => `최소 ${round.config.minorityMinimum}명 이상 모인 선택지 중 가장 적은 쪽에서 살아남습니다.`, score: '소수파 생존 선택에 들어가면 3점' },
+  exact: { goal: '내가 고른 선택지의 최종 인원을 카드에 적힌 정원과 정확히 맞춥니다.', score: '내 선택지의 정원을 정확히 맞추면 3점' },
+  alliance: { goal: '팀원들의 단서를 합쳐 모든 선택지의 최종 순위와 득표수를 맞힙니다.', score: '순위 한 칸·득표수 하나마다 1점 · 전체 순위 완벽 적중 +3점 · 팀 공동' },
+  mission: { goal: '나만의 비밀 임무를 들키지 않고 최종 투표 결과로 달성합니다.', score: '비밀 임무를 성공하면 4점' }
+};
+
 const PHASES = {
   mission: { name: '비밀 임무 확인', hint: '각자 받은 목표와 역할을 조용히 확인합니다.' },
   vote: { name: '비밀 투표', hint: '모두가 동시에 자신의 선택을 제출합니다.' },
@@ -52,6 +63,10 @@ let draftOptions = [
 let clockOffset = 0;
 let busy = false;
 let toastTimer = null;
+let heartbeatTimer = null;
+let connectionStatus = session ? 'connecting' : 'idle';
+const formDrafts = new Map();
+const HEARTBEAT_MS = 20_000;
 
 const app = document.querySelector('#app');
 const toastElement = document.querySelector('#toast');
@@ -72,6 +87,51 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 
+function usesTeams(mode = state?.round?.mode) {
+  return mode === 'alliance';
+}
+
+function modeGuide(round) {
+  const guide = MODE_GUIDES[round.mode];
+  return { ...guide, goal: typeof guide.goal === 'function' ? guide.goal(round) : guide.goal };
+}
+
+function studentActionGuide(round) {
+  const generic = {
+    mission: '비밀 임무와 역할을 읽고 기억하세요. 이 단계에는 제출할 버튼이 없습니다.',
+    vote: '내가 실제로 원하는 선택지 하나를 누르세요. 첫 투표는 한 번 누르면 확정됩니다.',
+    predict: '정보를 보기 전에 최종 득표 1위·2위와 두 선택지의 표 차이를 예상해 제출하세요.',
+    intel: '토큰을 남겨 점수를 받을지, 토큰 1개를 써서 정보나 능력을 얻을지 선택하세요.',
+    final_predict: '1차 예측에 얻은 정보를 반영해 마지막 답을 확인하고 확정하세요.',
+    clue: '내 단서를 팀원에게 말로 공유하세요. 이 단계에는 앱으로 제출할 답이 없습니다.',
+    team_guess: '팀이 합의한 전체 순위와 각 득표수를 입력하세요. 한 명이 제출하면 팀 답안이 됩니다.',
+    reveal: '결과가 공개되는 중입니다. 집계가 끝나면 내 점수 근거가 아래에 나타납니다.',
+    finished: '아래에서 이번 라운드 점수의 항목별 내역과 누적 점수를 확인하세요.'
+  };
+  if (round.phase === 'signal') return {
+    migration: '혼잡도를 보고 바꿀 인원 수·1위 변경·표 차이 변화를 먼저 예측한 뒤 토론하세요.',
+    minority: '혼잡·한산 신호만 보고 어디가 생존할 소수파가 될지 협상하세요.',
+    exact: '혼잡·한산 신호만 보고 각 선택지의 표시 정원에 맞도록 협상하세요.',
+    mission: '내 임무를 숨긴 채 공개된 신호를 이용해 원하는 결과를 협상하세요.'
+  }[round.mode] || PHASES.signal.hint;
+  if (round.phase === 'revote') return {
+    migration: '토론 뒤의 실제 최종 선택을 유지하거나 바꾸세요. 앞서 낸 이동 예측과는 별개입니다.',
+    minority: '최소 인원을 넘으면서 가장 적을 것 같은 선택지로 최종 선택하세요.',
+    exact: '표시된 정원과 정확히 같아질 것 같은 선택지로 최종 선택하세요.',
+    mission: '비밀 임무를 이루기 위한 마지막 선택을 유지하거나 바꾸세요.'
+  }[round.mode] || PHASES.revote.hint;
+  return generic[round.phase] || PHASES[round.phase]?.hint || '';
+}
+
+function studentGuide(round) {
+  const guide = modeGuide(round);
+  return `<section class="student-guide" aria-label="현재 게임 도움말">
+    <div><small>🏁 이번 게임 목표</small><strong>${esc(guide.goal)}</strong></div>
+    <div class="student-guide-now"><small>👉 지금 할 일 · ${round.phaseIndex + 1}/${round.phases.length}단계</small><strong>${esc(studentActionGuide(round))}</strong></div>
+    <div><small>⭐ 점수 얻는 법</small><strong>${esc(guide.score)}</strong></div>
+  </section>`;
+}
+
 function header(extra = '') {
   return `<header class="topbar">
     <button class="brand btn-reset" data-action="home" aria-label="마음신호 홈">
@@ -87,7 +147,7 @@ function landing() {
     ${header('<span class="status-chip"><i class="online-dot"></i> 교사·학생 시작 화면</span>')}
     <section class="hero glass">
       <div>
-        <p class="eyebrow">선생님을 위한 교실 투표 방송국</p>
+        <p class="eyebrow">교사 운영 · 학생 코드 입장</p>
         <h1>손들기보다<br><span class="gradient-text">짜릿한 투표</span></h1>
         <p class="hero-copy">교사는 학급방과 투표를 만들고, 학생은 초대 링크를 열거나 선생님에게 받은 5자리 학급 코드로 들어갑니다.</p>
         <div class="button-row">
@@ -142,8 +202,8 @@ function authScreen(kind) {
     'student-code': {
       eyebrow: '학생 입장', title: '학급 코드로 들어가기', description: '선생님에게 받은 학급 코드와 내 이름을 입력하세요.', form: `
         <form id="student-join-form" class="form-stack">
-          <div class="field"><label for="student-code">학급 코드</label><input class="input room-code-input" id="student-code" name="code" minlength="5" maxlength="5" pattern="[A-HJ-NP-Za-hj-np-z2-9]{5}" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="예: M7K2P" required autofocus><span class="helper">선생님 화면에 보이는 영문·숫자 5자리입니다.</span></div>
-          <div class="field"><label for="student-code-name">내 이름</label><input class="input" id="student-code-name" name="name" maxlength="18" autocomplete="name" placeholder="예: 김하늘" required></div>
+          <div class="field"><label for="student-code">학급 코드</label><input class="input room-code-input" id="student-code" name="code" minlength="5" maxlength="5" pattern="[A-HJ-NP-Za-hj-np-z2-9]{5}" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" placeholder="예: M7K2P" aria-describedby="student-code-help" required autofocus><span class="helper" id="student-code-help">선생님 화면에 보이는 영문·숫자 5자리입니다.</span></div>
+          <div class="field"><label for="student-code-name">내 이름</label><input class="input" id="student-code-name" name="name" maxlength="18" autocomplete="name" enterkeyhint="go" placeholder="예: 김하늘" required></div>
           <button class="btn btn-pink" type="submit">학급방 들어가기</button>
         </form>`
     }
@@ -163,10 +223,17 @@ function authScreen(kind) {
 function roomHeader() {
   const isTeacher = state.role === 'teacher';
   const me = state.me;
+  const connection = {
+    connected: { label: isTeacher ? '교사 화면 · 연결됨' : `${me?.name || ''} · 연결됨`, className: 'connected' },
+    reconnecting: { label: '재연결 중', className: 'reconnecting' },
+    offline: { label: '인터넷 연결 없음', className: 'offline' },
+    connecting: { label: '연결 중', className: 'reconnecting' },
+    idle: { label: isTeacher ? '교사 화면' : me?.name || '학생 화면', className: '' }
+  }[connectionStatus];
   return header(`
     <button class="room-chip" data-action="copy-code" title="방 코드 복사">방 <strong>${esc(state.room.code)}</strong> ⧉</button>
     ${me ? `<span class="score-chip">✨ ${me.score}점</span>` : ''}
-    <span class="status-chip"><i class="online-dot"></i>${isTeacher ? '교사 화면' : esc(me?.name)}</span>
+    <span class="status-chip" data-connection-status><i class="online-dot ${connection.className}"></i><span data-connection-label>${esc(connection.label)}</span></span>
     <button class="btn btn-ghost btn-small" data-action="logout">나가기</button>`);
 }
 
@@ -209,11 +276,11 @@ function roundForm() {
       ${draftMode === 'minority' ? '<div class="field"><label for="minority-minimum">생존 최소 인원</label><input class="input" id="minority-minimum" name="minorityMinimum" type="number" min="1" max="20" value="3"></div>' : '<div></div>'}
     </div>
     <div class="two-col">
-      <label class="switch-row"><span>시간 종료 후 자동 진행</span><span class="switch"><input type="checkbox" name="autoAdvance"><i></i></span></label>
+      <label class="switch-row"><span>시간 종료 시 자동 진행 <small class="helper">미제출자가 있어도 이동</small></span><span class="switch"><input type="checkbox" name="autoAdvance"><i></i></span></label>
       ${game ? '<label class="switch-row"><span>역할 카드 사용</span><span class="switch"><input type="checkbox" name="roles"><i></i></span></label>' : '<div></div>'}
       ${alliance ? '<label class="switch-row"><span>거짓 단서 1개 섞기</span><span class="switch"><input type="checkbox" name="falseClue"><i></i></span></label>' : ''}
     </div>
-    <div class="button-row"><button class="btn btn-primary" type="submit">${MODES[draftMode].icon} ${MODES[draftMode].name} 시작하기</button><span class="helper">시작하면 학생 화면에 즉시 표시됩니다.</span></div>
+    <div class="button-row"><button class="btn btn-primary" type="submit">${MODES[draftMode].icon} ${MODES[draftMode].name} 시작하기</button><span class="helper">첫 비밀투표는 제출 후 확정됩니다. 제한시간 안에 모두 제출하면 즉시 다음 단계로 이동하며, 최종 선택처럼 수정 가능한 단계는 기다립니다.</span></div>
   </form>`;
 }
 
@@ -233,10 +300,12 @@ function roomCodeCard() {
 
 function roster() {
   const online = state.players.filter((player) => player.online).length;
-  return `<div class="section-title">참여 학생 <span class="helper">${online}/${state.players.length}명 접속</span></div>
-    <div class="roster">${state.players.length ? state.players.map((player) => `
-      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${esc(player.team)}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? '접속 중' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>참여 링크를 보내거나 학급 코드를 알려 주세요.</div>'}</div>
-    <div class="section-title title-with-action"><span>팀 점수</span>${state.players.length ? '<button class="btn btn-ghost btn-small" data-action="reset-scores">점수 초기화</button>' : ''}</div>${teamBoard()}`;
+  const roundInProgress = state.round && state.round.phase !== 'finished';
+  const showTeams = usesTeams();
+  return `<div class="section-title">참여 학생 <span class="helper">현재 ${online}명 접속 · ${state.players.length}명 등록</span></div>
+    <div class="roster" data-scroll-key="roster">${state.players.length ? state.players.map((player) => `
+      <div class="person"><span class="avatar">${esc(player.name.slice(-2))}</span><span><strong>${esc(player.name)}</strong><small>${showTeams ? `${esc(player.team)} · ` : ''}${player.online ? roundInProgress && !player.roundActive ? '접속 중 · 이번 라운드 관전' : '접속 중' : roundInProgress && !player.roundActive ? '현재 라운드 제외' : roundInProgress ? '재접속 대기' : '오프라인'}</small></span><span class="person-actions"><i class="presence ${player.online ? 'online' : ''}" title="${player.online ? roundInProgress && !player.roundActive ? '접속 중이지만 다음 라운드부터 참여' : '접속 중' : roundInProgress && !player.roundActive ? '현재 라운드 인원에서 제외됨' : roundInProgress ? '30초 동안 재접속 대기' : '오프라인'}"></i><button class="remove-person" data-action="remove-player" data-player-id="${player.id}" data-player-name="${esc(player.name)}" aria-label="${esc(player.name)} 학생 삭제">×</button></span></div>`).join('') : '<div class="empty">아직 입장한 학생이 없습니다.<br>참여 링크를 보내거나 학급 코드를 알려 주세요.</div>'}</div>
+    ${showTeams ? `<div class="section-title title-with-action"><span>정보 연합전 팀 누적 점수</span>${state.players.length ? '<button class="btn btn-ghost btn-small" data-action="reset-scores">점수 초기화</button>' : ''}</div>${teamBoard()}` : ''}`;
 }
 
 function teamBoard() {
@@ -251,8 +320,8 @@ function teacherLive(round) {
     <section class="stage glass">
       <div class="stage-head"><div><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p></div>${timerHtml(round)}</div>
       ${phaseTrack(round)}
-      <div class="metric-grid"><div class="metric"><small>참여 인원</small><strong>${round.totalPlayers}</strong>명</div><div class="metric"><small>현재 제출</small><strong>${progress.done}</strong>/${progress.total}</div><div class="metric"><small>진행 단계</small><strong>${round.phaseIndex + 1}</strong>/${round.phases.length}</div></div>
-      <div class="progress" aria-label="제출률"><i style="width:${progress.total ? Math.round(progress.done / progress.total * 100) : 0}%"></i></div>
+      <div class="metric-grid"><div class="metric"><small>현재 라운드 참여</small><strong>${round.totalPlayers}</strong>명</div>${progress.tracked ? `<div class="metric"><small>현재 제출</small><strong>${progress.done}</strong>/${progress.total}</div>` : '<div class="metric"><small>단계 상태</small><strong>진행 중</strong></div>'}<div class="metric"><small>진행 단계</small><strong>${round.phaseIndex + 1}</strong>/${round.phases.length}</div></div>
+      ${progress.tracked ? `<div class="progress" aria-label="제출률"><i style="width:${progress.total ? Math.round(progress.done / progress.total * 100) : 0}%"></i></div>` : ''}
       ${teacherStageContent(round)}
       <div class="teacher-controls">${teacherControls(round)}</div>
     </section>
@@ -263,8 +332,8 @@ function teacherLive(round) {
 function phaseProgress(round) {
   const map = { vote: 'vote', revote: 'revote', predict: 'prediction', final_predict: 'finalPrediction', signal: round.mode === 'migration' ? 'movementPrediction' : null, team_guess: 'teamGuess' };
   const key = map[round.phase];
-  const total = round.phase === 'team_guess' ? Math.max(1, Object.keys(state.teamScores).length) : round.totalPlayers;
-  return { done: key ? round.submissions[key] || 0 : 0, total };
+  const total = round.phase === 'team_guess' ? round.totalTeams : round.totalPlayers;
+  return { done: key ? round.submissions[key] || 0 : 0, total, tracked: Boolean(key) };
 }
 
 function timerHtml(round) {
@@ -309,15 +378,16 @@ function studentView() {
 }
 
 function studentLobby() {
-  return `<div class="student-title"><p class="eyebrow">${esc(state.room.className)}</p><h1>다음 마음신호를 기다려요</h1><p>${esc(state.room.teacherName)}이(가) 새 투표를 열면 이 화면에 바로 나타납니다.</p></div><div class="waiting-orbit" aria-hidden="true"></div><div class="section-title">우리 팀 점수</div>${teamBoard()}`;
+  return `<div class="student-title"><p class="eyebrow">${esc(state.room.className)}</p><h1>다음 마음신호를 기다려요</h1><p>${esc(state.room.teacherName)}이(가) 새 투표를 열면 이 화면에 바로 나타납니다.<br>내 누적 점수는 위쪽의 ✨ 표시에서 확인할 수 있어요.</p></div><div class="waiting-orbit" aria-hidden="true"></div>`;
 }
 
 function studentRound(round) {
   const phase = PHASES[round.phase];
-  return `<div class="student-title"><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p>${round.timerEnd ? timerHtml(round) : ''}</div>${studentPhase(round)}`;
+  return `<div class="student-title"><span class="phase-badge">${MODES[round.mode].icon} ${MODES[round.mode].name} · ${phase.name}</span><h1>${esc(round.title)}</h1><p>${phase.hint}</p>${round.timerEnd ? timerHtml(round) : ''}</div>${phaseTrack(round)}${studentGuide(round)}${studentPhase(round)}`;
 }
 
 function studentPhase(round) {
+  if (round.participating === false) return '<div class="private-card"><small>이번 라운드 관전 중</small><strong>게임이 시작된 뒤 연결되어 이번에는 결과를 함께 지켜봅니다.</strong><p>다음 라운드가 시작되면 자동으로 참여 인원에 포함됩니다.</p></div>';
   if (round.phase === 'mission') return missionCard(round);
   if (['vote', 'revote'].includes(round.phase)) return votePanel(round);
   if (['predict', 'final_predict'].includes(round.phase)) return predictionPanel(round);
@@ -335,8 +405,10 @@ function missionCard(round) {
 
 function votePanel(round) {
   if (round.phase === 'revote' && !round.canRevote) return `${roleNotice(round)}<div class="private-card"><small>선택 유지</small><strong>영향가의 표는 2표로 계산되는 대신 이번에는 이동할 수 없습니다.</strong></div>`;
-  return `${roleNotice(round)}<div class="option-grid">${round.options.map((option) => `
-    <button class="vote-option ${round.myVote === option.id ? 'selected' : ''}" style="--option-color:${option.color}" data-action="vote" data-option-id="${option.id}"><span class="check">✓</span><strong>${esc(option.label)}${option.capacity ? `<small style="display:block;opacity:.8;margin-top:4px">정원 ${option.capacity}명</small>` : ''}</strong></button>`).join('')}</div>${round.myVote ? `<div class="submitted">✓ 선택 완료 · 단계가 끝나기 전까지 바꿀 수 있어요</div>` : ''}`;
+  const locked = round.phase === 'vote' && Boolean(round.myVote);
+  const lockNotice = round.phase === 'vote' && !round.myVote ? '<p class="vote-lock-note">🔒 첫 비밀투표는 한 번 누르면 확정됩니다. 선택지를 확인한 뒤 눌러 주세요.</p>' : '';
+  return `${roleNotice(round)}${lockNotice}<div class="option-grid">${round.options.map((option) => `
+    <button class="vote-option ${round.myVote === option.id ? 'selected' : ''}" style="--option-color:${option.color}" data-action="vote" data-option-id="${option.id}" ${locked ? 'disabled' : ''}><span class="check">✓</span><strong>${esc(option.label)}${option.capacity ? `<small style="display:block;opacity:.8;margin-top:4px">정원 ${option.capacity}명</small>` : ''}</strong></button>`).join('')}</div>${round.myVote ? `<div class="submitted">✓ ${locked ? `첫 선택 확정${round.timerEnd ? ' · 모두 제출하면 바로 다음 단계로 이동해요' : ''}` : '최종 선택 저장 · 단계가 끝나기 전까지 바꿀 수 있어요'}</div>` : ''}`;
 }
 
 function roleNotice(round) {
@@ -348,20 +420,26 @@ function predictionPanel(round) {
   const split = round.skillState?.used.includes('split');
   const finalLocked = round.phase === 'final_predict' && round.prediction?.final
     && (!round.skillState?.used.includes('second') || round.prediction.secondChanceUsed);
+  const status = round.phase === 'final_predict'
+    ? round.prediction?.final
+      ? `✓ 최종 예측이 저장되었습니다. ${finalLocked ? '이제 확정되었어요.' : '세컨드 찬스로 한 번 수정할 수 있어요.'}`
+      : round.prediction?.initial ? '↩ 1차 예측을 불러왔습니다. 확인한 뒤 최종 예측을 확정해 주세요.' : ''
+    : existing ? '✓ 1차 예측이 저장되었습니다. 단계가 끝나기 전까지 수정할 수 있어요.' : '';
   const optionSelect = (name, selected, label) => `<div class="field"><label for="${name}">${label}</label><select class="select" id="${name}" name="${name}" required><option value="">선택하세요</option>${round.options.map((option) => `<option value="${option.id}" ${selected === option.id ? 'selected' : ''}>${esc(option.label)}</option>`).join('')}</select></div>`;
   return `<form id="prediction-form" class="form-stack">
     <div class="two-col">${optionSelect('first', existing?.first, '예상 1위')}${optionSelect('second', existing?.second, '예상 2위')}</div>
     ${split ? `<div class="field"><label>분산 예측 1위 후보 2개</label><div class="two-col">${optionSelect('splitA', existing?.split?.[0], '후보 A')}${optionSelect('splitB', existing?.split?.[1], '후보 B')}</div></div>` : ''}
     <div class="field"><label for="gap">1위와 2위 표 차이</label><select class="select" id="gap" name="gap" required><option value="close" ${existing?.gap === 'close' ? 'selected' : ''}>1~2표 · 박빙</option><option value="middle" ${existing?.gap === 'middle' ? 'selected' : ''}>3~5표 · 보통</option><option value="wide" ${existing?.gap === 'wide' ? 'selected' : ''}>6표 이상 · 큰 차이</option></select></div>
     <button class="btn btn-primary" type="submit" ${finalLocked ? 'disabled' : ''}>${round.phase === 'final_predict' ? (round.prediction?.final ? '최종 예측 수정' : '최종 예측 확정') : '1차 예측 제출'}</button>
-    ${existing ? `<div class="submitted">✓ 예측이 저장되었습니다. ${finalLocked ? '최종 확정되었어요.' : '단계가 끝나기 전까지 수정할 수 있어요.'}</div>` : ''}
+    ${status ? `<div class="submitted">${status}</div>` : ''}
   </form>`;
 }
 
 function skillPanel(round) {
   const skill = round.skillState;
   return `<div class="skill-hero" role="img" aria-label="빛나는 정보 아이템 8종"></div>
-    <div class="token-row">남은 정보 토큰 ${Array.from({ length: skill.tokens }, () => '<i class="token"></i>').join('')} <strong>${skill.tokens}개</strong></div>
+    <div class="token-tip"><strong>남기면 점수, 쓰면 정보</strong><span>라운드가 끝날 때 남은 토큰 1개마다 +1점입니다. 올인은 정보를 포기하고 예측 적중 점수를 2배로 만듭니다.</span></div>
+    <div class="token-row">남은 정보 토큰 ${Array.from({ length: skill.tokens }, () => '<i class="token"></i>').join('')} <strong>${skill.tokens}개 · 현재 보너스 +${skill.tokens}점</strong></div>
     <div class="skill-grid">${Object.entries(SKILLS).map(([key, item]) => {
       const disabled = skill.used.includes(key)
         || (key === 'allin' && skill.used.length > 0)
@@ -406,14 +484,114 @@ function resultList(results, totalPlayers) {
 
 function studentResults(round) {
   const mission = round.mode === 'mission' && round.missionSuccess !== null ? `<div class="points-pop">${round.missionSuccess ? '🎭 비밀 임무 성공!' : '🕵️ 비밀 임무는 다음 기회에'} · ${esc(round.mission)}</div>` : '';
-  const points = round.myPoints !== null ? `<div class="points-pop">이번 라운드에서 <strong>+${round.myPoints}점</strong>을 얻었어요.</div>` : '';
-  return `${resultList(round.results, round.totalPlayers)}${mission}${points}${round.phase === 'finished' ? '<div class="section-title" style="text-align:center">다음 게임을 기다려 주세요 ✨</div>' : '<div class="waiting-orbit"></div>'}`;
+  const receipt = round.myPoints !== null ? scoreReceipt(round) : '';
+  return `${resultList(round.results, round.totalPlayers)}${mission}${receipt}${round.phase === 'finished' ? '<div class="section-title" style="text-align:center">다음 게임을 기다려 주세요 ✨</div>' : '<div class="waiting-orbit"></div>'}`;
 }
 
-function render() {
+function scoreReceipt(round) {
+  if (['official', 'show'].includes(round.mode)) return '<div class="points-pop">이 모드는 점수 경쟁 없이 투표 결과만 확인합니다.</div>';
+  const items = round.pointBreakdown || [];
+  return `<section class="score-receipt" aria-label="이번 라운드 점수 내역">
+    <div class="score-receipt-head"><span>이번 라운드 점수</span><strong>+${round.myPoints}점</strong></div>
+    <ul>${items.length ? items.map((item) => `<li><span>${esc(item.label)}</span><strong>+${item.points}점</strong></li>`).join('') : '<li class="score-empty"><span>이번에는 적중한 점수 항목이 없어요.</span><strong>+0점</strong></li>'}</ul>
+    <div class="score-total"><span>내 누적 점수</span><strong>${state.me.score}점</strong></div>
+  </section>`;
+}
+
+function formDraftKey(form) {
+  const roomKey = session?.code || linkedRoom || 'local';
+  const viewKey = state?.round ? `${state.round.id}:${state.round.phase}` : 'setup';
+  return `${roomKey}:${viewKey}:${form.id}`;
+}
+
+function captureFormDraft(form) {
+  if (!form?.id) return;
+  const values = {};
+  Array.from(form.elements).forEach((field) => {
+    if (!field.name || ['submit', 'button'].includes(field.type)) return;
+    values[field.name] = ['checkbox', 'radio'].includes(field.type)
+      ? { checked: field.checked }
+      : { value: field.value };
+  });
+  formDrafts.set(formDraftKey(form), values);
+}
+
+function captureVisibleForms() {
+  app.querySelectorAll('form[id]').forEach(captureFormDraft);
+}
+
+function restoreFormDrafts() {
+  app.querySelectorAll('form[id]').forEach((form) => {
+    const draft = formDrafts.get(formDraftKey(form));
+    if (!draft) return;
+    Array.from(form.elements).forEach((field) => {
+      const saved = draft[field.name];
+      if (!saved) return;
+      if ('checked' in saved) field.checked = saved.checked;
+      else if ('value' in saved) field.value = saved.value;
+    });
+  });
+}
+
+function captureFocusedControl() {
+  const field = document.activeElement;
+  if (!field || !app.contains(field) || !['INPUT', 'SELECT', 'TEXTAREA'].includes(field.tagName)) return null;
+  return {
+    id: field.id,
+    name: field.name,
+    formId: field.form?.id,
+    start: Number.isInteger(field.selectionStart) ? field.selectionStart : null,
+    end: Number.isInteger(field.selectionEnd) ? field.selectionEnd : null
+  };
+}
+
+function captureScrollState() {
+  return {
+    x: window.scrollX,
+    y: window.scrollY,
+    elements: Array.from(document.querySelectorAll('[data-scroll-key]')).map((element) => ({
+      key: element.dataset.scrollKey,
+      top: element.scrollTop,
+      left: element.scrollLeft
+    }))
+  };
+}
+
+function restoreScrollState(snapshot) {
+  if (!snapshot) return;
+  snapshot.elements.forEach((saved) => {
+    const element = document.querySelector(`[data-scroll-key="${saved.key}"]`);
+    if (!element) return;
+    element.scrollTop = saved.top;
+    element.scrollLeft = saved.left;
+  });
+  const previousBehavior = document.documentElement.style.scrollBehavior;
+  document.documentElement.style.scrollBehavior = 'auto';
+  window.scrollTo(snapshot.x, snapshot.y);
+  document.documentElement.scrollTop = snapshot.y;
+  document.documentElement.style.scrollBehavior = previousBehavior;
+}
+
+function restoreFocusedControl(snapshot) {
+  if (!snapshot) return;
+  const form = snapshot.formId ? document.getElementById(snapshot.formId) : null;
+  const field = snapshot.id ? document.getElementById(snapshot.id) : Array.from(form?.elements || []).find((item) => item.name === snapshot.name);
+  if (!field) return;
+  field.focus({ preventScroll: true });
+  if (snapshot.start !== null && typeof field.setSelectionRange === 'function') {
+    field.setSelectionRange(snapshot.start, snapshot.end);
+  }
+}
+
+function render({ capture = true, focus = captureFocusedControl(), scroll = captureScrollState() } = {}) {
+  if (capture) captureVisibleForms();
   document.documentElement.classList.remove('presentation');
   if (!state) app.innerHTML = screen === 'landing' ? landing() : authScreen(screen);
   else app.innerHTML = state.role === 'teacher' ? teacherView() : studentView();
+  restoreFormDrafts();
+  restoreScrollState(scroll);
+  restoreFocusedControl(focus);
+  updateConnectionIndicator();
   updateTimer();
 }
 
@@ -436,16 +614,118 @@ async function action(name, payload = {}) {
   finally { busy = false; }
 }
 
+function studentVisualSignature(next) {
+  if (next?.role !== 'student') return null;
+  const round = next.round ? { ...next.round } : null;
+  if (round) {
+    const timerVisible = Boolean(round.timerEnd);
+    delete round.submissions;
+    delete round.timerEnd;
+    delete round.timerExpired;
+    delete round.totalPlayers;
+    delete round.totalTeams;
+    round.timerVisible = timerVisible;
+    round.config = { ...round.config };
+    delete round.config.timerSeconds;
+    delete round.config.autoAdvance;
+  }
+  return JSON.stringify({ room: next.room, me: next.me, teamScores: next.teamScores, round });
+}
+
+function viewIdentity(next) {
+  return next ? `${next.role}:${next.round ? `${next.round.id}:${next.round.phase}` : 'setup'}` : `screen:${screen}`;
+}
+
 function receiveState(next) {
+  const canUpdateInPlace = state?.role === 'student' && next.role === 'student'
+    && studentVisualSignature(state) === studentVisualSignature(next);
+  if (canUpdateInPlace) {
+    state = next;
+    clockOffset = next.serverTime - Date.now();
+    updateTimer();
+    return;
+  }
+  const sameView = viewIdentity(state) === viewIdentity(next);
+  const focus = sameView ? captureFocusedControl() : null;
+  const scroll = sameView ? captureScrollState() : { x: 0, y: 0, elements: [] };
+  captureVisibleForms();
   state = next;
   clockOffset = next.serverTime - Date.now();
+  render({ capture: false, focus, scroll });
+}
+
+function connectionCopy() {
+  const name = state?.role === 'teacher' ? '교사 화면' : state?.me?.name || '학생 화면';
+  return {
+    connected: `${name} · 연결됨`,
+    reconnecting: '재연결 중',
+    offline: '인터넷 연결 없음',
+    connecting: '연결 중',
+    idle: name
+  }[connectionStatus];
+}
+
+function updateConnectionIndicator() {
+  const indicator = document.querySelector('[data-connection-status]');
+  if (!indicator) return;
+  const dot = indicator.querySelector('.online-dot');
+  dot?.classList.remove('connected', 'reconnecting', 'offline');
+  if (connectionStatus === 'connected') dot?.classList.add('connected');
+  if (['connecting', 'reconnecting'].includes(connectionStatus)) dot?.classList.add('reconnecting');
+  if (connectionStatus === 'offline') dot?.classList.add('offline');
+  const label = indicator.querySelector('[data-connection-label]');
+  if (label) label.textContent = connectionCopy();
+}
+
+function setConnectionStatus(next) {
+  connectionStatus = next;
+  updateConnectionIndicator();
+}
+
+function stopHeartbeat() {
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function startHeartbeat(socket) {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (eventSource !== socket) return stopHeartbeat();
+    if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+  }, HEARTBEAT_MS);
+}
+
+function handleExpiredConnection() {
+  const studentRoom = session?.role === 'student' ? session.code : '';
+  stopHeartbeat();
+  eventSource = null;
+  saveSession(null);
+  state = null;
+  setConnectionStatus('idle');
+  if (studentRoom) {
+    linkedRoom = studentRoom;
+    history.replaceState({}, '', `/?room=${encodeURIComponent(studentRoom)}`);
+    screen = 'student';
+  } else {
+    screen = 'teacher-login';
+  }
   render();
+  showToast('입장 정보가 만료되어 다시 확인이 필요합니다.', true);
 }
 
 function connect() {
   clearTimeout(reconnectTimer);
-  eventSource?.close();
-  if (!session) return;
+  stopHeartbeat();
+  const previousSocket = eventSource;
+  eventSource = null;
+  previousSocket?.close();
+  if (!session) return setConnectionStatus('idle');
+  if (!navigator.onLine) {
+    setConnectionStatus('offline');
+    reconnectTimer = setTimeout(connect, 3000);
+    return;
+  }
+  setConnectionStatus('connecting');
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(session.code)}/events?token=${encodeURIComponent(session.token)}`);
   eventSource = socket;
@@ -454,8 +734,17 @@ function connect() {
     try { receiveState(JSON.parse(event.data)); }
     catch { showToast('새 상태를 읽지 못했습니다.', true); }
   });
-  socket.addEventListener('close', () => {
+  socket.addEventListener('open', () => {
+    if (eventSource !== socket) return;
+    setConnectionStatus('connected');
+    startHeartbeat(socket);
+  });
+  socket.addEventListener('close', (event) => {
     if (eventSource !== socket || !session) return;
+    stopHeartbeat();
+    if (event.code === 4001) return handleExpiredConnection();
+    eventSource = null;
+    setConnectionStatus(navigator.onLine ? 'reconnecting' : 'offline');
     showToast('연결을 다시 시도하고 있어요.');
     reconnectTimer = setTimeout(connect, 1500);
   });
@@ -509,11 +798,16 @@ function captureOptions() {
 }
 
 app.addEventListener('input', (event) => {
+  if (event.target.form) captureFormDraft(event.target.form);
   const input = event.target.closest('[data-option-index]');
   if (!input) return;
   const index = Number(input.dataset.optionIndex);
   const key = input.dataset.optionKey;
   draftOptions[index][key] = key === 'capacity' ? Number(input.value) : input.value;
+});
+
+app.addEventListener('change', (event) => {
+  if (event.target.form) captureFormDraft(event.target.form);
 });
 
 app.addEventListener('click', async (event) => {
@@ -528,7 +822,8 @@ app.addEventListener('click', async (event) => {
   else if (command === 'open-student-code') { screen = 'student-code'; render(); }
   else if (command === 'logout') {
     const studentRoom = session?.role === 'student' ? (state?.room?.code || session.code) : '';
-    eventSource?.close(); saveSession(null); state = null;
+    clearTimeout(reconnectTimer); stopHeartbeat(); eventSource?.close(); eventSource = null;
+    saveSession(null); state = null; connectionStatus = 'idle'; formDrafts.clear();
     if (studentRoom) {
       linkedRoom = studentRoom;
       history.replaceState({}, '', `/?room=${encodeURIComponent(studentRoom)}`);
@@ -555,9 +850,17 @@ app.addEventListener('click', async (event) => {
     captureOptions(); draftOptions.push({ label: '', capacity: draftOptions.length * 2 + 4 }); render();
   } else if (command === 'remove-option') {
     captureOptions(); draftOptions.splice(Number(button.dataset.index), 1); render();
-  } else if (command === 'advance') await action('advance');
+  } else if (command === 'advance') {
+    const progress = phaseProgress(state.round);
+    const missing = Math.max(0, progress.total - progress.done);
+    if (progress.tracked && missing > 0 && !confirm(`아직 ${missing}명이 제출하지 않았습니다. 그래도 다음 단계로 이동할까요?`)) return;
+    await action('advance');
+  }
   else if (command === 'reveal-next') await action('reveal_next');
-  else if (command === 'finish-round') await action('finish_round');
+  else if (command === 'finish-round') {
+    if (state.round.phase !== 'reveal' && !confirm('라운드를 즉시 종료하면 현재까지 제출된 값으로 결과가 확정됩니다. 종료할까요?')) return;
+    await action('finish_round');
+  }
   else if (command === 'remove-player') {
     if (confirm(`${button.dataset.playerName} 학생의 입장 정보와 누적 점수를 삭제할까요?`)) await action('remove_player', { playerId: button.dataset.playerId });
   } else if (command === 'reset-scores') {
@@ -573,7 +876,7 @@ app.addEventListener('click', async (event) => {
     if (document.documentElement.classList.contains('presentation')) document.documentElement.requestFullscreen?.().catch(() => null);
     else if (document.fullscreenElement) document.exitFullscreen?.();
   } else if (command === 'set-timer') {
-    openDialog(`<div class="dialog-head"><h2>⏱ 제한 시간 설정</h2><button class="btn btn-icon btn-ghost" data-action="close-dialog">×</button></div><form id="timer-form" class="form-stack"><div class="field"><label for="timer-value">현재 단계 제한 시간(초)</label><input class="input" id="timer-value" name="seconds" type="number" min="0" max="600" value="45"><span class="helper">0초는 시간 제한 없음입니다.</span></div><button class="btn btn-primary" type="submit">타이머 다시 시작</button></form>`);
+    openDialog(`<div class="dialog-head"><h2>⏱ 제한 시간 설정</h2><button class="btn btn-icon btn-ghost" data-action="close-dialog">×</button></div><form id="timer-form" class="form-stack"><div class="field"><label for="timer-value">현재 단계 제한 시간(초)</label><input class="input" id="timer-value" name="seconds" type="number" min="0" max="600" value="${Number(state.round.config.timerSeconds) || 0}"><span class="helper">0초는 시간 제한 없음입니다. 저장하면 지금부터 다시 시작합니다.</span></div><button class="btn btn-primary" type="submit">타이머 다시 시작</button></form>`);
   }
 });
 
@@ -584,6 +887,8 @@ dialog.addEventListener('click', (event) => {
 document.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
+  captureFormDraft(form);
+  const submittedDraftKey = form.id ? formDraftKey(form) : null;
   const data = Object.fromEntries(new FormData(form));
   try {
     if (form.id === 'create-room-form') {
@@ -620,6 +925,7 @@ document.addEventListener('submit', async (event) => {
     } else if (form.id === 'timer-form') {
       closeDialog(); await action('set_timer', { seconds: Number(data.seconds) });
     }
+    if (submittedDraftKey) formDrafts.delete(submittedDraftKey);
   } catch (error) { showToast(error.message, true); }
 });
 
@@ -634,6 +940,25 @@ function updateTimer() {
 setInterval(updateTimer, 500);
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) document.documentElement.classList.remove('presentation');
+});
+window.addEventListener('online', () => {
+  if (session && eventSource?.readyState !== WebSocket.OPEN) connect();
+});
+window.addEventListener('offline', () => {
+  clearTimeout(reconnectTimer);
+  stopHeartbeat();
+  const socket = eventSource;
+  eventSource = null;
+  socket?.close();
+  setConnectionStatus('offline');
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && session
+    && ![WebSocket.OPEN, WebSocket.CONNECTING].includes(eventSource?.readyState)) connect();
+});
+window.addEventListener('beforeunload', () => {
+  stopHeartbeat();
+  eventSource?.close();
 });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => null));
 

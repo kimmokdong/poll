@@ -1,4 +1,6 @@
 import {
+  PRESENCE_GRACE_MS,
+  activePlayerIds,
   advanceRound,
   authenticate,
   authError,
@@ -8,6 +10,7 @@ import {
   displayState,
   id,
   joinRoom,
+  maybeAdvanceCompletedPhase,
   pinHash,
   roomCode,
   secureEqual,
@@ -124,8 +127,9 @@ export class Room {
     room.expiresAt = room.updatedAt + this.ttlMs();
   }
 
-  onlineTokens() {
+  onlineTokens(exceptSocket = null) {
     return new Set(this.ctx.getWebSockets()
+      .filter((socket) => socket !== exceptSocket)
       .map((socket) => socket.deserializeAttachment())
       .filter((attachment) => attachment?.role !== 'display' && attachment?.token)
       .map((attachment) => attachment.token));
@@ -144,6 +148,13 @@ export class Room {
     const candidates = [room.expiresAt];
     const round = room.currentRound;
     if (round?.timerEnd && !round.timerExpired) candidates.push(round.timerEnd);
+    if (round && !['reveal', 'finished'].includes(round.phase)) {
+      const participantIds = Array.isArray(round.participantIds) ? round.participantIds : Object.keys(room.players);
+      participantIds.forEach((playerId) => {
+        const disconnectedAt = room.players[playerId]?.disconnectedAt;
+        if (Number.isFinite(disconnectedAt)) candidates.push(disconnectedAt + PRESENCE_GRACE_MS);
+      });
+    }
     const next = Math.min(...candidates.filter((value) => Number.isFinite(value) && value > Date.now()));
     if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next);
   }
@@ -214,6 +225,10 @@ export class Room {
         const [client, server] = Object.values(pair);
         this.ctx.acceptWebSocket(server);
         server.serializeAttachment({ role: role || auth.role, token, origin });
+        if (auth.player) {
+          auth.player.lastSeen = Date.now();
+          auth.player.disconnectedAt = null;
+        }
         this.touch(room);
         await this.persist(room);
         await this.broadcast(room, origin);
@@ -230,8 +245,14 @@ export class Room {
 
       if (request.method === 'POST' && endpoint === 'action') {
         const body = await readJson(request);
-        if (auth.role === 'teacher') teacherAction(room, body.action, body.payload || {});
+        const onlineTokens = this.onlineTokens();
+        if (auth.role === 'teacher') {
+          teacherAction(room, body.action, body.payload || {}, {
+            participantIds: activePlayerIds(room, onlineTokens)
+          });
+        }
         else studentAction(room, auth.player, body.action, body.payload || {});
+        maybeAdvanceCompletedPhase(room, onlineTokens);
         this.touch(room);
         await this.persist(room);
         await this.broadcast(room, origin);
@@ -264,14 +285,27 @@ export class Room {
     if (message === 'ping') socket.send('pong');
   }
 
-  async webSocketClose() {
+  async handleSocketDeparture(socket) {
     const room = await this.loadRoom();
-    if (room) await this.broadcast(room);
+    if (!room) return;
+    const attachment = socket.deserializeAttachment() || {};
+    if (attachment.role === 'student' && attachment.token && !this.onlineTokens(socket).has(attachment.token)) {
+      const player = Object.values(room.players).find((item) => item.token === attachment.token);
+      if (player) {
+        player.lastSeen = Date.now();
+        player.disconnectedAt = player.lastSeen;
+        await this.persist(room);
+      }
+    }
+    await this.broadcast(room);
   }
 
-  async webSocketError() {
-    const room = await this.loadRoom();
-    if (room) await this.broadcast(room);
+  async webSocketClose(socket) {
+    await this.handleSocketDeparture(socket);
+  }
+
+  async webSocketError(socket) {
+    await this.handleSocketDeparture(socket);
   }
 
   async alarm() {
@@ -279,13 +313,22 @@ export class Room {
     if (!room) return;
     const now = Date.now();
     if (room.expiresAt <= now) return this.expire();
-    const round = room.currentRound;
-    if (round?.timerEnd && !round.timerExpired && round.timerEnd <= now) {
+    let round = room.currentRound;
+    let changed = maybeAdvanceCompletedPhase(room, this.onlineTokens(), now);
+    const advancedForCompletion = changed;
+    round = room.currentRound;
+    if (!advancedForCompletion && round?.timerEnd && !round.timerExpired && round.timerEnd <= now) {
       if (round.config.autoAdvance && !['reveal', 'finished'].includes(round.phase)) advanceRound(room);
       else round.timerExpired = true;
-      await this.ctx.storage.put(ROOM_KEY, room);
-      await this.broadcast(room);
+      changed = true;
     }
+    const participantIds = Array.isArray(round?.participantIds) ? round.participantIds : Object.keys(room.players);
+    const presenceExpired = Boolean(round && participantIds.some((playerId) => {
+      const disconnectedAt = room.players[playerId]?.disconnectedAt;
+      return Number.isFinite(disconnectedAt) && disconnectedAt + PRESENCE_GRACE_MS <= now;
+    }));
+    if (changed) await this.ctx.storage.put(ROOM_KEY, room);
+    if (changed || presenceExpired) await this.broadcast(room);
     await this.scheduleAlarm(room);
   }
 

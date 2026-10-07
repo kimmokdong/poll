@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { __test } from '../src/game.js';
+import {
+  PRESENCE_GRACE_MS,
+  __test,
+  advanceRound,
+  clientState,
+  createRoom,
+  createRound,
+  maybeAdvanceCompletedPhase,
+  studentAction
+} from '../src/game.js';
 
 function roomFixture() {
   return {
@@ -19,6 +28,23 @@ function roomFixture() {
       roles: { a: 'influencer', b: 'citizen', c: 'analyst', d: 'floater' }
     }
   };
+}
+
+function liveRoom(mode = 'official') {
+  const room = createRoom({ className: '테스트반', teacherName: '테스트 교사', pin: '1234' }, 'ABCDE');
+  room.players = {
+    a: { id: 'a', token: 'token-a', name: '가람', team: '별빛팀', score: 0 },
+    b: { id: 'b', token: 'token-b', name: '나래', team: '구름팀', score: 0 }
+  };
+  createRound(room, {
+    mode,
+    title: '오늘의 선택',
+    options: [{ label: 'A' }, { label: 'B' }],
+    timerSeconds: 45,
+    revealStyle: 'staircase',
+    resultPrivacy: 'full'
+  }, ['a', 'b']);
+  return room;
 }
 
 test('최종 표는 2차 선택을 우선하고 영향가 표를 2표로 계산한다', () => {
@@ -122,6 +148,29 @@ test('소수파 생존과 정확히 N명 모드는 승리한 학생에게만 점
   assert.deepEqual(exact.currentRound.points, { a: 3, b: 3, c: 3, d: 0 });
 });
 
+test('표심전 점수는 학생 화면에 항목별 근거와 합계로 전달한다', () => {
+  const room = liveRoom('prediction');
+  const [first, second] = room.currentRound.options;
+  room.currentRound.votes.first = { a: first.id, b: first.id };
+  room.currentRound.predictions.a = {
+    final: { first: first.id, second: second.id, gap: 'close', split: [] }
+  };
+  __test.scoreRound(room);
+
+  assert.equal(room.currentRound.points.a, 11);
+  assert.equal(room.currentRound.pointBreakdowns.a.reduce((sum, item) => sum + item.points, 0), 11);
+  assert.deepEqual(room.currentRound.pointBreakdowns.a.map((item) => item.label), [
+    '1위 예측 적중',
+    '2위 예측 적중',
+    '1·2위 표 차이 적중',
+    '완벽 예측 보너스',
+    '남은 정보 토큰'
+  ]);
+
+  const state = clientState(room, { role: 'student', player: room.players.a }, new Set(['token-a', 'token-b']));
+  assert.deepEqual(state.round.pointBreakdown, room.currentRound.pointBreakdowns.a);
+});
+
 test('교실 TV 상태에는 학생의 이름과 비밀 토큰을 보내지 않는다', () => {
   const state = __test.displayState({
     code: 'ABCDE',
@@ -150,4 +199,47 @@ test('교실 TV는 소수파 생존의 실제 승리 조건을 따로 계산한�
   assert.equal(outcome.kind, 'minority');
   assert.equal(outcome.winners[0].count, 1);
   assert.notEqual(outcome.winners[0].id, 'red');
+});
+
+test('제한시간이 있는 첫 비밀투표는 선택을 잠그고 모두 제출하면 즉시 마감한다', () => {
+  const room = liveRoom('official');
+  const [first, second] = room.currentRound.options;
+  studentAction(room, room.players.a, 'vote', { optionId: first.id });
+  assert.throws(
+    () => studentAction(room, room.players.a, 'vote', { optionId: second.id }),
+    /이미 확정/
+  );
+  assert.equal(maybeAdvanceCompletedPhase(room, new Set(['token-a', 'token-b'])), false);
+  studentAction(room, room.players.b, 'vote', { optionId: second.id });
+  assert.equal(maybeAdvanceCompletedPhase(room, new Set(['token-a', 'token-b'])), true);
+  assert.equal(room.currentRound.phase, 'reveal');
+});
+
+test('최종 선택 단계는 모두 제출해도 제한시간 안에 다시 바꿀 수 있다', () => {
+  const room = liveRoom('migration');
+  const [first, second] = room.currentRound.options;
+  studentAction(room, room.players.a, 'vote', { optionId: first.id });
+  studentAction(room, room.players.b, 'vote', { optionId: second.id });
+  assert.equal(maybeAdvanceCompletedPhase(room, new Set(['token-a', 'token-b'])), true);
+  assert.equal(room.currentRound.phase, 'signal');
+  advanceRound(room);
+  assert.equal(room.currentRound.phase, 'revote');
+  studentAction(room, room.players.a, 'vote', { optionId: first.id });
+  studentAction(room, room.players.b, 'vote', { optionId: second.id });
+  assert.equal(maybeAdvanceCompletedPhase(room, new Set(['token-a', 'token-b'])), false);
+  studentAction(room, room.players.a, 'vote', { optionId: second.id });
+  assert.equal(room.currentRound.votes.final.a, second.id);
+});
+
+test('연결이 끊긴 학생은 30초 유예 후 현재 라운드 분모에서만 제외한다', () => {
+  const room = liveRoom('official');
+  const now = Date.now();
+  room.players.b.disconnectedAt = now - PRESENCE_GRACE_MS - 1;
+  const state = clientState(room, { role: 'teacher', player: null }, new Set(['token-a']));
+  assert.equal(state.round.totalPlayers, 1);
+  assert.equal(state.players.find((player) => player.id === 'b').roundActive, false);
+  assert.ok(room.players.b);
+
+  studentAction(room, room.players.a, 'vote', { optionId: room.currentRound.options[0].id });
+  assert.equal(maybeAdvanceCompletedPhase(room, new Set(['token-a']), now), true);
 });

@@ -11,6 +11,7 @@
   <script src="/display.js" defer></script>
 </head>
 <body>
+  <script defer src="https://hsstudio.pages.dev/project-visits.js" referrerpolicy="no-referrer"></script>
   <div class="cosmos" aria-hidden="true">
     <i class="aurora aurora-a"></i>
     <i class="aurora aurora-b"></i>
@@ -28,6 +29,7 @@
 
   <div class="display-controls" id="display-controls" aria-label="교실 TV 화면 설정">
     <button type="button" data-display-action="audio" id="audio-toggle" aria-pressed="false">🔇 BGM 켜기</button>
+    <label class="volume-control" for="volume-slider"><span>음량</span><input id="volume-slider" type="range" min="0" max="100" step="5" value="80"><output id="volume-value" for="volume-slider">80%</output></label>
     <button type="button" data-display-action="hide-code" id="code-toggle" aria-pressed="false">🙈 방 코드 숨기기</button>
     <button type="button" data-display-action="fullscreen">⛶ 전체화면</button>
   </div>

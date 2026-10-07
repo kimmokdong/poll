@@ -26,6 +26,8 @@ const PHASES = {
 const app = document.querySelector('#display-app');
 const audioGate = document.querySelector('#audio-gate');
 const audioToggle = document.querySelector('#audio-toggle');
+const volumeSlider = document.querySelector('#volume-slider');
+const volumeValue = document.querySelector('#volume-value');
 const codeToggle = document.querySelector('#code-toggle');
 const toast = document.querySelector('#display-toast');
 const pathParts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
@@ -40,9 +42,12 @@ let clockOffset = 0;
 let toastTimer = null;
 let controlsTimer = null;
 let lastTimerTick = null;
+let heartbeatTimer = null;
 let codeHidden = localStorage.getItem('maeum-display-hide-code') === 'true';
 let audioEnabled = false;
 let soundscape = null;
+let bgmVolume = Math.min(1, Math.max(0, Number(localStorage.getItem('maeum-display-volume') || 80) / 100));
+const HEARTBEAT_MS = 20_000;
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -100,31 +105,36 @@ function topbar(round = null) {
     <div class="tv-brand"><img src="/assets/app-icon.png" alt=""><span><strong>마음신호 방송국</strong><small>CLASSROOM VOTE BROADCAST</small></span></div>
     <div class="tv-meta">
       ${mode ? `<span class="mode-pill" style="border-color:${mode.color}55;color:${mode.color}">${mode.icon} ${mode.name}</span>` : ''}
-      <span class="connection-pill"><i></i>${online}/${state.players.length}명 연결</span>
+      <span class="connection-pill"><i></i><span data-tv-connection>${online}/${state.players.length}명 연결</span></span>
       <span class="tv-room">ROOM <strong class="room-code-value">${esc(visibleCode())}</strong></span>
     </div>
   </header>`;
 }
 
+function teamScoreboard(round = null) {
+  if (round?.mode !== 'alliance') return '';
+  const scores = Object.entries(state.teamScores || {}).sort((a, b) => b[1] - a[1]);
+  return `<div class="tv-team-row" aria-label="정보 연합전 팀 누적 점수"><span class="team-score-label">🤝 팀 누적 점수</span><div class="team-strip">${scores.map(([team, score]) => `<div class="team-chip"><span>${esc(team)}</span><strong>${score}</strong></div>`).join('')}</div></div>`;
+}
+
 function phaseFooter(round = null, message = '') {
   const phases = round?.phases || [];
-  const scores = Object.entries(state.teamScores || {}).sort((a, b) => b[1] - a[1]);
   return `<footer class="tv-footer">
     <div>${round ? `<div class="phase-progress" aria-label="${round.phaseIndex + 1}/${phases.length}단계">${phases.map((_, index) => `<i class="${index <= round.phaseIndex ? 'done' : ''}"></i>`).join('')}</div>` : `<span class="footer-message">${esc(message)}</span>`}</div>
-    ${scores.length ? `<div class="team-strip" aria-label="팀 점수">${scores.map(([team, score]) => `<div class="team-chip"><span>${esc(team)}</span><strong>${score}</strong></div>`).join('')}</div>` : '<span class="footer-message">학생이 입장하면 팀이 자동 배정됩니다</span>'}
+    ${round ? `<span class="footer-message">${round.phaseIndex + 1}/${phases.length} · ${esc(PHASES[round.phase]?.name || '')}</span>` : ''}
   </footer>`;
 }
 
-function frame(content, round = null, footerMessage = '') {
-  return `<section class="tv-screen" data-phase="${round?.phase || 'lobby'}"><div class="phase-sweep" aria-hidden="true"></div>${topbar(round)}<main class="tv-main">${content}</main>${phaseFooter(round, footerMessage)}</section>`;
+function frame(content, round = null, footerMessage = '', animatePhase = false) {
+  return `<section class="tv-screen ${round?.mode === 'alliance' ? 'has-teams' : ''}" data-phase="${round?.phase || 'lobby'}">${animatePhase ? '<div class="phase-sweep" aria-hidden="true"></div>' : ''}${topbar(round)}${teamScoreboard(round)}<main class="tv-main">${content}</main>${phaseFooter(round, footerMessage)}</section>`;
 }
 
-function lobby() {
+function lobby(animatePhase = false) {
   const online = state.players.filter((player) => player.online).length;
   return frame(`<section class="stage-content lobby-stage">
-    <div><p class="eyebrow">${esc(state.room.className)} · READY ROOM</p><h1 class="stage-title">모두의 선택이<br><span class="gradient-word">이야기</span>가 되는 순간</h1><p class="stage-copy">초대 링크를 열거나 메인 화면에서 5자리 학급 코드로 들어오세요. 투표가 시작되면 이 화면이 교실 전체의 무대가 됩니다.</p></div>
-    <div class="lobby-code-card"><span>학생 참여 안내</span><strong class="lobby-invite-title">참여 링크를 열거나<br>5자리 코드를<br>입력하세요</strong><small class="join-address">메인 화면 → 학급 코드로 들어가기</small><div class="people-badge">현재 <strong>${online}</strong>명 접속 · 전체 ${state.players.length}명</div></div>
-  </section>`, null, `${state.room.teacherName}의 다음 신호를 기다리는 중`);
+    <div><p class="eyebrow">${esc(state.room.className)} · READY ROOM</p><h1 class="stage-title">모두의 선택이<br><span class="gradient-word">이야기</span>가 되는 순간</h1><p class="stage-copy">학생은 선생님이 보낸 참여 링크를 열고 이름만 입력하세요. 투표가 시작되면 이 화면이 교실 전체의 무대가 됩니다.</p></div>
+    <div class="lobby-code-card"><span>학생 참여 안내</span><strong class="lobby-invite-title">선생님이 보낸<br>참여 링크를<br>열어 주세요</strong><small class="join-address">교사 화면 → 학생 참여 링크 복사</small><div class="people-badge">현재 <strong data-lobby-online>${online}</strong>명 접속 · 등록 <span data-lobby-total>${state.players.length}</span>명</div></div>
+  </section>`, null, `${state.room.teacherName}의 다음 신호를 기다리는 중`, animatePhase);
 }
 
 function remainingSeconds(round) {
@@ -154,15 +164,15 @@ function progressData(round) {
   const map = { vote: 'vote', revote: 'revote', predict: 'prediction', final_predict: 'finalPrediction', team_guess: 'teamGuess', signal: round.mode === 'migration' ? 'movementPrediction' : null };
   const key = map[round.phase];
   if (!key) return null;
-  const total = round.phase === 'team_guess' ? Math.max(1, Object.keys(state.teamScores || {}).length) : Math.max(1, round.totalPlayers);
+  const total = round.phase === 'team_guess' ? round.totalTeams : round.totalPlayers;
   const done = round.submissions[key] || 0;
-  return { done, total, percent: Math.min(100, Math.round(done / total * 100)) };
+  return { done, total, percent: total ? Math.min(100, Math.round(done / total * 100)) : 0 };
 }
 
 function progressPanel(round) {
   const progress = progressData(round);
   if (!progress) return '';
-  return `<div class="progress-show"><strong>${progress.done}/${progress.total}</strong><div class="progress-track"><i style="--progress:${progress.percent}%"></i></div><span>${progress.percent === 100 ? '모두 제출 완료!' : '비밀리에 제출 중'}</span></div>`;
+  return `<div class="progress-show"><strong data-tv-progress-count>${progress.done}/${progress.total}</strong><div class="progress-track"><i data-tv-progress-bar style="--progress:${progress.percent}%"></i></div><span data-tv-progress-label>${progress.total > 0 && progress.percent === 100 ? '모두 제출 완료!' : progress.total ? '비밀리에 제출 중' : '참여자 연결 대기 중'}</span></div>`;
 }
 
 function standardPhase(round) {
@@ -221,24 +231,24 @@ function finishedPhase(round) {
   return `<section class="winner-stage"><span class="winner-crown">🏆</span><p class="winner-label">${esc(outcome.title)}</p><div class="winner-list ${outcome.winners.length > 1 ? 'multiple' : ''}">${winners}</div></section>${confetti()}`;
 }
 
-function roundScreen(round) {
+function roundScreen(round, animatePhase = false) {
   let content;
   if (round.phase === 'finished') content = finishedPhase(round);
   else if (round.phase === 'reveal') content = revealPhase(round);
   else if (round.phase === 'signal') content = signalPhase(round);
   else if (['mission', 'intel', 'clue'].includes(round.phase)) content = privatePhase(round);
   else content = standardPhase(round);
-  return frame(content, round);
+  return frame(content, round, '', animatePhase);
 }
 
-function render() {
+function render({ animatePhase = false } = {}) {
   document.body.classList.toggle('code-hidden', codeHidden);
   codeToggle.setAttribute('aria-pressed', String(codeHidden));
   codeToggle.textContent = codeHidden ? '👁 방 코드 보이기' : '🙈 방 코드 숨기기';
   if (!roomCode) { app.innerHTML = roomEntry(); return; }
   if (!state) return;
   document.body.dataset.phase = state.round?.phase || 'lobby';
-  app.innerHTML = state.round ? roundScreen(state.round) : lobby();
+  app.innerHTML = state.round ? roundScreen(state.round, animatePhase) : lobby(animatePhase);
   updateTimer();
 }
 
@@ -250,14 +260,65 @@ function revealSignature(round) {
   return round ? `${round.id}:${round.phase}:${round.revealStep}` : 'none';
 }
 
+function visualSignature(next) {
+  const round = next?.round;
+  return JSON.stringify({
+    room: next?.room,
+    teamScores: next?.teamScores,
+    round: round ? {
+      id: round.id,
+      mode: round.mode,
+      title: round.title,
+      options: round.options,
+      phase: round.phase,
+      phaseIndex: round.phaseIndex,
+      phases: round.phases,
+      signal: round.signal,
+      results: round.results,
+      revealStep: round.revealStep,
+      revealTotal: round.revealTotal,
+      displayOutcome: round.displayOutcome,
+      resultPrivacy: round.config?.resultPrivacy,
+      revealStyle: round.config?.revealStyle
+    } : null
+  });
+}
+
+function updateLiveStatus() {
+  if (!state) return;
+  const online = state.players.filter((player) => player.online).length;
+  const connection = document.querySelector('[data-tv-connection]');
+  if (connection) connection.textContent = `${online}/${state.players.length}명 연결`;
+  const lobbyOnline = document.querySelector('[data-lobby-online]');
+  const lobbyTotal = document.querySelector('[data-lobby-total]');
+  if (lobbyOnline) lobbyOnline.textContent = online;
+  if (lobbyTotal) lobbyTotal.textContent = state.players.length;
+
+  const progress = state.round ? progressData(state.round) : null;
+  if (!progress) return;
+  const count = document.querySelector('[data-tv-progress-count]');
+  const bar = document.querySelector('[data-tv-progress-bar]');
+  const label = document.querySelector('[data-tv-progress-label]');
+  if (count) count.textContent = `${progress.done}/${progress.total}`;
+  if (bar) bar.style.setProperty('--progress', `${progress.percent}%`);
+  if (label) label.textContent = progress.total > 0 && progress.percent === 100
+    ? '모두 제출 완료!'
+    : progress.total ? '비밀리에 제출 중' : '참여자 연결 대기 중';
+}
+
 function receiveState(next) {
   const previousRound = state?.round;
+  const needsRender = !state || visualSignature(state) !== visualSignature(next);
   const phaseChanged = state && phaseSignature(previousRound) !== phaseSignature(next.round);
   const revealChanged = state && next.round?.phase === 'reveal' && revealSignature(previousRound) !== revealSignature(next.round);
   const justFinished = state && previousRound?.phase !== 'finished' && next.round?.phase === 'finished';
   state = next;
   clockOffset = next.serverTime - Date.now();
-  render();
+  if (needsRender) render({ animatePhase: !previousRound || phaseChanged });
+  else {
+    updateLiveStatus();
+    updateTimer();
+  }
   soundscape?.setPhase(next.round?.phase || 'lobby');
   if (revealChanged) {
     triggerRevealHit();
@@ -282,9 +343,29 @@ async function loadState() {
   }
 }
 
+function stopHeartbeat() {
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function startHeartbeat(socket) {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (source !== socket) return stopHeartbeat();
+    if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+  }, HEARTBEAT_MS);
+}
+
 function connect() {
   clearTimeout(reconnectTimer);
-  source?.close();
+  stopHeartbeat();
+  const previousSocket = source;
+  source = null;
+  previousSocket?.close();
+  if (!navigator.onLine) {
+    reconnectTimer = setTimeout(connect, 3000);
+    return;
+  }
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(roomCode)}/display-events`);
   source = socket;
@@ -293,9 +374,15 @@ function connect() {
     try { receiveState(JSON.parse(event.data)); }
     catch { showToast('새 상태를 읽지 못했습니다.', true); }
   });
-  socket.addEventListener('open', () => showToast('교사 화면과 실시간으로 연결되었습니다.'));
+  socket.addEventListener('open', () => {
+    if (source !== socket) return;
+    startHeartbeat(socket);
+    showToast('교사 화면과 실시간으로 연결되었습니다.');
+  });
   socket.addEventListener('close', () => {
     if (source !== socket || !roomCode) return;
+    stopHeartbeat();
+    source = null;
     showToast('연결을 다시 시도하고 있습니다.', true);
     reconnectTimer = setTimeout(connect, 1500);
   });
@@ -341,6 +428,7 @@ class Soundscape {
     this.step = 0;
     this.phase = 'lobby';
     this.muted = false;
+    this.volume = bgmVolume;
   }
 
   async start() {
@@ -356,9 +444,9 @@ class Soundscape {
       this.master = this.context.createGain();
       this.music = this.context.createGain();
       this.effects = this.context.createGain();
-      this.master.gain.value = .28;
-      this.music.gain.value = .32;
-      this.effects.gain.value = .5;
+      this.master.gain.value = .55 * this.volume;
+      this.music.gain.value = .48;
+      this.effects.gain.value = .62;
       this.music.connect(this.master);
       this.effects.connect(this.master);
       this.master.connect(compressor);
@@ -374,7 +462,13 @@ class Soundscape {
     this.muted = muted;
     if (!this.master || !this.context) return;
     this.master.gain.cancelScheduledValues(this.context.currentTime);
-    this.master.gain.setTargetAtTime(muted ? .0001 : .28, this.context.currentTime, .08);
+    this.master.gain.setTargetAtTime(muted ? .0001 : .55 * this.volume, this.context.currentTime, .08);
+  }
+
+  setVolume(volume) {
+    this.volume = Math.min(1, Math.max(0, Number(volume) || 0));
+    if (!this.master || !this.context || this.muted) return;
+    this.master.gain.setTargetAtTime(.55 * this.volume, this.context.currentTime, .05);
   }
 
   setPhase(phase) {
@@ -529,6 +623,12 @@ function updateAudioButton() {
   audioToggle.textContent = audioEnabled ? '🔊 BGM 켜짐' : '🔇 BGM 켜기';
 }
 
+function updateVolumeControl() {
+  const percent = Math.round(bgmVolume * 100);
+  volumeSlider.value = String(percent);
+  volumeValue.textContent = `${percent}%`;
+}
+
 async function toggleFullscreen() {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
@@ -555,6 +655,13 @@ document.addEventListener('click', async (event) => {
   } else if (action === 'fullscreen') await toggleFullscreen();
 });
 
+volumeSlider.addEventListener('input', () => {
+  bgmVolume = Number(volumeSlider.value) / 100;
+  localStorage.setItem('maeum-display-volume', String(Math.round(bgmVolume * 100)));
+  soundscape?.setVolume(bgmVolume);
+  updateVolumeControl();
+});
+
 document.addEventListener('submit', (event) => {
   if (event.target.id !== 'display-room-form') return;
   event.preventDefault();
@@ -576,11 +683,27 @@ document.addEventListener('keydown', async (event) => {
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && audioEnabled) soundscape?.context?.resume();
+  if (!document.hidden && ![WebSocket.OPEN, WebSocket.CONNECTING].includes(source?.readyState)) connect();
 });
 
-window.addEventListener('beforeunload', () => source?.close());
+window.addEventListener('online', () => {
+  if (source?.readyState !== WebSocket.OPEN) connect();
+});
+window.addEventListener('offline', () => {
+  clearTimeout(reconnectTimer);
+  stopHeartbeat();
+  const socket = source;
+  source = null;
+  socket?.close();
+  showToast('인터넷 연결을 기다리고 있습니다.', true);
+});
+window.addEventListener('beforeunload', () => {
+  stopHeartbeat();
+  source?.close();
+});
 setInterval(updateTimer, 250);
 createStars();
+updateVolumeControl();
 if (!roomCode) audioGate.classList.add('hidden');
 render();
 loadState();
